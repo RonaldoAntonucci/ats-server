@@ -1,0 +1,23 @@
+name: Build - Docker (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      checkout_ref:
+        description: Optional branch, tag, or commit to build
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-docker:
+    name: Build Docker image
+    uses: ./.github/workflows/reusable-build-docker.yml
+    with:
+      checkout_ref: ${{ inputs.checkout_ref }}
+      vcpkg_binary_cache_mode: readwrite
+    secrets: inherit

@@ -14,6 +14,11 @@ on:
         required: false
         type: string
         default: ""
+      vcpkg_binary_cache_mode:
+        description: vcpkg binary cache mode for non-main builds.
+        required: false
+        type: string
+        default: read
 
 permissions:
   contents: read
@@ -105,7 +110,7 @@ jobs:
           build-args: |
             VCPKG_FEED_URL=https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
             VCPKG_FEED_USERNAME=${{ github.repository_owner }}
-            VCPKG_BINARY_CACHE_MODE=read
+            VCPKG_BINARY_CACHE_MODE=${{ inputs.vcpkg_binary_cache_mode }}
           secrets: |
             github_token=${{ github.token }}
           tags: |
