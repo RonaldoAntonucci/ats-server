@@ -1,0 +1,6 @@
+# syntax=docker/dockerfile:1.7
+
+ARG CANARY_IMAGE=ghcr.io/ronaldoantonucci/ats-server:latest@sha256:98c357bbc896dc3949fc111f217114d47a2447a8f89ae60079c2d6ef7b236245
+FROM ${CANARY_IMAGE}
+
+RUN sed -i 's/^mapName = .*/mapName = "canary"/' /canary/config.lua
