@@ -21,8 +21,10 @@ POWERSHELL_LAUNCHER = REPO_ROOT / "docker" / "up-local.ps1"
 DOCKER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "reusable-build-docker.yml"
 QUICKSTART_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "reusable-docker-quickstart-smoke.yml"
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+DOCKER_DOC = REPO_ROOT / "docker" / "DOCKER.md"
 LEGACY_X86_DOCKERFILE = REPO_ROOT / "docker" / ("Dockerfile" + ".x86")
 LEGACY_ARM_DOCKERFILE = REPO_ROOT / "docker" / ("Dockerfile" + ".arm")
+LEGACY_DEV_DOCKERFILE = REPO_ROOT / "docker" / ("Dockerfile" + ".dev")
 
 
 def tracked_docker_contract_files() -> list[Path]:
@@ -131,6 +133,13 @@ class LocalRuntimeComposeContractTests(unittest.TestCase):
 	def test_merged_runtime_preserves_myaac_build(self) -> None:
 		config = self.render_compose(BASE_COMPOSE, LOCAL_COMPOSE)
 		self.assertIn("build", config["services"]["myaac"])
+
+	def test_merged_runtime_uses_only_named_canary_data_volume(self) -> None:
+		config = self.render_compose(BASE_COMPOSE, LOCAL_COMPOSE)
+		self.assertEqual(
+			[{"type": "volume", "source": "server-data", "target": "/data", "volume": {}}],
+			config["services"]["server"]["volumes"],
+		)
 
 	def test_base_quickstart_keeps_published_image_default(self) -> None:
 		content = BASE_COMPOSE.read_text(encoding="utf-8")
@@ -549,6 +558,13 @@ class LegacyDockerfileContractTests(unittest.TestCase):
 			if path == LEGACY_ARM_DOCKERFILE or not path.is_file():
 				continue
 			self.assertNotIn(LEGACY_ARM_DOCKERFILE.name, path.read_text(encoding="utf-8"), str(path.relative_to(REPO_ROOT)))
+
+	def test_dev_dockerfile_is_absent_and_unreferenced_by_runtime_files(self) -> None:
+		self.assertFalse(LEGACY_DEV_DOCKERFILE.exists())
+		for path in tracked_docker_contract_files():
+			if path in (LEGACY_DEV_DOCKERFILE, DOCKER_DOC) or not path.is_file():
+				continue
+			self.assertNotIn(LEGACY_DEV_DOCKERFILE.name, path.read_text(encoding="utf-8"), str(path.relative_to(REPO_ROOT)))
 
 
 if __name__ == "__main__":
