@@ -21,6 +21,9 @@ logs/
 *.out.log
 *.log
 
+# Runtime smoke tests execute from the host and are not part of the Canary image.
+tests/runtime/
+
 # Local/generated binaries from Windows builds
 *.dll
 *.exe

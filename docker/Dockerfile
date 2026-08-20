@@ -154,6 +154,12 @@ RUN /bin/bash -euo pipefail -c '\
 			-DVCPKG_HOST_TRIPLET="${VCPKG_TRIPLET}"; \
 		cmake --build --preset linux-debug --target canary_ut --parallel "${BUILD_JOBS}"'
 
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+	--mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+	apt-get update && apt-get install -y --no-install-recommends luajit \
+	&& apt-get clean \
+	&& rm -rf /var/lib/apt/lists/*
+
 WORKDIR /srv/build/linux-debug/tests/unit
 ENTRYPOINT ["./canary_ut"]
 

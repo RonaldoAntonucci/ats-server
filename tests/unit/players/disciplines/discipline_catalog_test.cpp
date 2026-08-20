@@ -17,6 +17,16 @@
 namespace {
 	class DisciplineCatalogTest : public ::testing::Test {
 	protected:
+		static void SetUpTestSuite() {
+			previousTestContainer = DI::getTestContainer();
+			InMemoryLogger::install(injector);
+			DI::setTestContainer(&injector);
+		}
+
+		static void TearDownTestSuite() {
+			DI::setTestContainer(previousTestContainer);
+		}
+
 		void SetUp() override {
 			dynamic_cast<InMemoryLogger &>(DI::get<Logger>()).reset();
 			temporaryDirectory = std::filesystem::temp_directory_path() / ("canary-discipline-catalog-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
@@ -38,6 +48,9 @@ namespace {
 		DisciplineCatalog catalog;
 		std::filesystem::path temporaryDirectory;
 		std::filesystem::path file;
+
+		inline static di::extension::injector<> injector {};
+		inline static di::extension::injector<>* previousTestContainer = nullptr;
 	};
 
 	constexpr std::string_view validCatalog = R"xml(
