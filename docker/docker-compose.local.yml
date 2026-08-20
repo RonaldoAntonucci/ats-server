@@ -2,4 +2,3 @@ services:
   server:
     image: ats-server:local
     pull_policy: never
-    platform: "${CANARY_LOCAL_PLATFORM}"

@@ -11,6 +11,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+ROOT_COMPOSE = REPO_ROOT / "compose.yaml"
 DOCKERFILE = REPO_ROOT / "docker" / "Dockerfile"
 BASE_COMPOSE = REPO_ROOT / "docker" / "docker-compose.yml"
 LOCAL_COMPOSE = REPO_ROOT / "docker" / "docker-compose.local.yml"
@@ -104,7 +105,6 @@ class LocalRuntimeComposeContractTests(unittest.TestCase):
 		environment_overrides: dict[str, str] | None = None,
 	) -> dict:
 		environment = os.environ.copy()
-		environment["CANARY_LOCAL_PLATFORM"] = "linux/arm64"
 		if environment_overrides:
 			environment.update(environment_overrides)
 		command = ["docker", "compose"]
@@ -125,7 +125,7 @@ class LocalRuntimeComposeContractTests(unittest.TestCase):
 		content = LOCAL_COMPOSE.read_text(encoding="utf-8")
 		self.assertIn("image: ats-server:local", content)
 		self.assertIn("pull_policy: never", content)
-		self.assertIn('platform: "${CANARY_LOCAL_PLATFORM}"', content)
+		self.assertNotIn("platform:", content)
 		self.assertNotIn("build:", content)
 
 	def test_merged_runtime_uses_local_image_without_server_build(self) -> None:
@@ -133,7 +133,7 @@ class LocalRuntimeComposeContractTests(unittest.TestCase):
 		server = config["services"]["server"]
 		self.assertEqual("ats-server:local", server["image"])
 		self.assertEqual("never", server["pull_policy"])
-		self.assertEqual("linux/arm64", server["platform"])
+		self.assertNotIn("platform", server)
 		self.assertNotIn("build", server)
 
 	def test_merged_runtime_preserves_myaac_build(self) -> None:
@@ -150,6 +150,63 @@ class LocalRuntimeComposeContractTests(unittest.TestCase):
 	def test_base_quickstart_keeps_published_image_default(self) -> None:
 		content = BASE_COMPOSE.read_text(encoding="utf-8")
 		self.assertIn('${CANARY_IMAGE:-ghcr.io/opentibiabr/canary:latest}', content)
+
+
+class RootComposeContractTests(unittest.TestCase):
+	def render_root_compose(self) -> dict:
+		environment = os.environ.copy()
+		environment.pop("CANARY_LOCAL_PLATFORM", None)
+		environment.pop("GITHUB_TOKEN", None)
+		completed = subprocess.run(
+			["docker", "compose", "config", "--format", "json"],
+			cwd=REPO_ROOT,
+			env=environment,
+			check=True,
+			capture_output=True,
+			text=True,
+		)
+		return json.loads(completed.stdout)
+
+	def test_root_compose_includes_local_layers_in_order(self) -> None:
+		content = ROOT_COMPOSE.read_text(encoding="utf-8")
+		expected = (
+			"docker/docker-compose.yml",
+			"docker/docker-compose.local.yml",
+			"docker/docker-compose.local-build.yml",
+			"docker/docker-compose.local-auth.yml",
+		)
+		positions = [content.index(path) for path in expected]
+		self.assertEqual(sorted(positions), positions)
+
+	def test_root_compose_uses_local_server_image_without_platform_variable(self) -> None:
+		server = self.render_root_compose()["services"]["server"]
+		self.assertEqual("ats-server:local", server["image"])
+		self.assertEqual("never", server["pull_policy"])
+		self.assertNotIn("platform", server)
+
+	def test_root_compose_exposes_canonical_canary_build(self) -> None:
+		server_build = self.render_root_compose()["services"]["server"]["build"]
+		self.assertEqual(str(REPO_ROOT), server_build["context"])
+		self.assertEqual("docker/Dockerfile", server_build["dockerfile"])
+
+	def test_root_compose_preserves_myaac_build(self) -> None:
+		myaac_build = self.render_root_compose()["services"]["myaac"]["build"]
+		self.assertEqual(str(REPO_ROOT / "docker"), myaac_build["context"])
+		self.assertEqual("quickstart/myaac/Dockerfile", myaac_build["dockerfile"])
+
+	def test_root_compose_preserves_service_graph_and_named_volumes(self) -> None:
+		config = self.render_root_compose()
+		self.assertEqual({"db", "server", "myaac", "login-server"}, set(config["services"]))
+		self.assertIn("db-volume", config["volumes"])
+		self.assertIn("server-data", config["volumes"])
+
+	def test_root_compose_accepts_an_unset_optional_build_secret(self) -> None:
+		config = self.render_root_compose()
+		self.assertEqual("GITHUB_TOKEN", config["secrets"]["github_token"]["environment"])
+		self.assertEqual(
+			[{"source": "github_token", "target": "github_token"}],
+			config["services"]["server"]["build"]["secrets"],
+		)
 
 
 class LocalBuildComposeContractTests(unittest.TestCase):
