@@ -14,7 +14,7 @@ CANARY_LEGACY_860_GAME_PORT="${CANARY_LEGACY_860_GAME_PORT:-7175}"
 CANARY_STATUS_PORT="${CANARY_STATUS_PORT:-7173}"
 CANARY_STATUS_TIMEOUT="${CANARY_STATUS_TIMEOUT:-5000}"
 CANARY_TEST_ACCOUNTS="${CANARY_TEST_ACCOUNTS:-false}"
-CANARY_DATA_PACK="${CANARY_DATA_PACK:-data-otservbr-global}"
+CANARY_DATA_PACK="${CANARY_DATA_PACK:-data-canary}"
 CANARY_MAP_URL="${CANARY_MAP_URL:-https://github.com/opentibiabr/canary/releases/download/v3.6.1/otservbr.otbm}"
 
 validate_identifier() {
@@ -249,6 +249,11 @@ set_lua_number "statusProtocolPort" "$CANARY_STATUS_PORT"
 set_lua_number "statusTimeout" "$CANARY_STATUS_TIMEOUT"
 set_lua_string "dataPackDirectory" "$CANARY_DATA_PACK"
 set_lua_string "mapDownloadUrl" "$CANARY_MAP_URL"
+if [ "$CANARY_DATA_PACK" = "data-canary" ]; then
+	set_lua_string "mapName" "canary"
+else
+	set_lua_string "mapName" "otservbr"
+fi
 
 echo "config.lua updated"
 

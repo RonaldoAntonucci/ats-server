@@ -13,7 +13,7 @@ set -euo pipefail
 : "${CANARY_GAME_PORT:=7172}"
 : "${CANARY_STATUS_PORT:=7173}"
 : "${CANARY_STATUS_TIMEOUT:=5000}"
-: "${CANARY_DATA_PACK:=data-otservbr-global}"
+: "${CANARY_DATA_PACK:=data-canary}"
 
 escape_lua() {
 	printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
