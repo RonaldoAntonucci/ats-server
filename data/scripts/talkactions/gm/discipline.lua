@@ -57,8 +57,10 @@ function discipline.onSay(player, words, param)
 		return true
 	end
 	local text = ("Disciplina %d atualizada: rank %d."):format(id, after)
-	player:sendTextMessage(MESSAGE_INFO_DESCR, text)
-	target:sendTextMessage(MESSAGE_INFO_DESCR, text)
+	player:sendTextMessage(MESSAGE_ADMINISTRATOR, text)
+	if target ~= player then
+		target:sendTextMessage(MESSAGE_ADMINISTRATOR, text)
+	end
 	return true
 end
 

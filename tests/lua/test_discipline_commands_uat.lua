@@ -11,8 +11,8 @@ function TalkAction(words)
 	return action
 end
 
-MESSAGE_FAILURE = 1
-MESSAGE_INFO_DESCR = 2
+MESSAGE_FAILURE = 21
+MESSAGE_ADMINISTRATOR = 18
 logger = { info = function() end }
 function logCommand() end
 

@@ -30,8 +30,8 @@ function TalkAction(words)
 	return action
 end
 
-MESSAGE_FAILURE = 1
-MESSAGE_INFO_DESCR = 2
+MESSAGE_FAILURE = 21
+MESSAGE_ADMINISTRATOR = 18
 
 local state
 local online
@@ -120,7 +120,7 @@ test("add changes exactly one rank and the next profile calculation", function()
 	local admin = invoke("add, Hero, 1")
 	assert_equal(3, affected.rank())
 	assert_equal(15, affected.profileAttribute(5))
-	assert_equal(MESSAGE_INFO_DESCR, admin.messages[1][1])
+	assert_equal(MESSAGE_ADMINISTRATOR, admin.messages[1][1])
 end)
 
 test("remove changes exactly one rank", function()
@@ -138,6 +138,16 @@ test("success notifies both author and affected character", function()
 	assert_equal(1, #affected.messages)
 	assert_equal("Disciplina 1 atualizada: rank 1.", admin.messages[1][2])
 	assert_equal(admin.messages[1][2], affected.messages[1][2])
+end)
+
+test("success notifies only once when author and target are the same character", function()
+	reset()
+	local god = target("GOD", 0)
+	registration.action.onSay(god, "!discipline", "add, GOD, 1")
+	assert_equal(1, god.rank())
+	assert_equal(1, #god.messages)
+	assert_equal(MESSAGE_ADMINISTRATOR, god.messages[1][1])
+	assert_equal("Disciplina 1 atualizada: rank 1.", god.messages[1][2])
 end)
 
 test("rejects an unsupported operation without changing state", function()
