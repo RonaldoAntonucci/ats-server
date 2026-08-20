@@ -21,6 +21,17 @@ POWERSHELL_LAUNCHER = REPO_ROOT / "docker" / "up-local.ps1"
 DOCKER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "reusable-build-docker.yml"
 QUICKSTART_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "reusable-docker-quickstart-smoke.yml"
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+LEGACY_X86_DOCKERFILE = REPO_ROOT / "docker" / ("Dockerfile" + ".x86")
+
+
+def tracked_docker_contract_files() -> list[Path]:
+	result = subprocess.run(
+		["git", "ls-files", "-z", ".github/scripts", ".github/workflows", "docker"],
+		cwd=REPO_ROOT,
+		check=True,
+		capture_output=True,
+	)
+	return [REPO_ROOT / path for path in result.stdout.decode("utf-8").split("\0") if path]
 
 
 class CanonicalDockerfileContractTests(unittest.TestCase):
@@ -479,7 +490,7 @@ class DockerWorkflowContractTests(unittest.TestCase):
 
 	def test_both_build_steps_use_canonical_dockerfile(self) -> None:
 		self.assertEqual(2, self.workflow.count("file: docker/Dockerfile\n"))
-		self.assertNotIn("Dockerfile.x86", self.workflow)
+		self.assertNotIn(LEGACY_X86_DOCKERFILE.name, self.workflow)
 
 	def test_local_docker_contracts_run_in_ci(self) -> None:
 		self.assertIn("python3 .github/scripts/test_docker_local_build.py", self.workflow)
@@ -521,6 +532,15 @@ class DockerWorkflowContractTests(unittest.TestCase):
 		self.assertIn("CANARY_IMAGE_TAR: artifacts/docker-image/canary-pr.tar", self.quickstart)
 		self.assertIn("needs: [changes, checks, tests-lua, build-docker]", self.ci)
 		self.assertIn("needs.build-docker.result == 'success'", self.ci)
+
+
+class LegacyDockerfileContractTests(unittest.TestCase):
+	def test_x86_dockerfile_is_absent_and_unreferenced(self) -> None:
+		self.assertFalse(LEGACY_X86_DOCKERFILE.exists())
+		for path in tracked_docker_contract_files():
+			if path == LEGACY_X86_DOCKERFILE or not path.is_file():
+				continue
+			self.assertNotIn(LEGACY_X86_DOCKERFILE.name, path.read_text(encoding="utf-8"), str(path.relative_to(REPO_ROOT)))
 
 
 if __name__ == "__main__":
