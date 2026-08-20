@@ -125,6 +125,44 @@ RUN /bin/bash -euo pipefail -c '\
 			-DVCPKG_HOST_TRIPLET="${VCPKG_TRIPLET}"; \
 		cmake --build --preset linux-release --parallel "${BUILD_JOBS}"'
 
+FROM dependencies AS test
+
+ARG TARGETARCH
+ARG BUILD_JOBS=2
+COPY . /srv/
+WORKDIR /srv
+COPY --from=dependencies /opt/vcpkg_installed /srv/vcpkg_installed
+
+RUN /bin/bash -euo pipefail -c '\
+		case "${TARGETARCH}" in \
+			amd64) VCPKG_TRIPLET=x64-linux ;; \
+			arm64) VCPKG_TRIPLET=arm64-linux; export VCPKG_FORCE_SYSTEM_BINARIES=1 ;; \
+			*) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+		esac; \
+		export VCPKG_ROOT=/opt/vcpkg; \
+		/opt/vcpkg/vcpkg install \
+			--x-manifest-root=/srv \
+			--x-install-root=/srv/vcpkg_installed \
+			--triplet="${VCPKG_TRIPLET}" \
+			--host-triplet="${VCPKG_TRIPLET}" \
+			--x-feature=tests; \
+		cmake --preset linux-debug \
+			-DTOGGLE_BIN_FOLDER=ON \
+			-DVCPKG_MANIFEST_INSTALL=OFF \
+			-DVCPKG_INSTALLED_DIR=/srv/vcpkg_installed \
+			-DVCPKG_TARGET_TRIPLET="${VCPKG_TRIPLET}" \
+			-DVCPKG_HOST_TRIPLET="${VCPKG_TRIPLET}"; \
+		cmake --build --preset linux-debug --target canary_ut --parallel "${BUILD_JOBS}"'
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+	--mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+	apt-get update && apt-get install -y --no-install-recommends luajit \
+	&& apt-get clean \
+	&& rm -rf /var/lib/apt/lists/*
+
+WORKDIR /srv/build/linux-debug/tests/unit
+ENTRYPOINT ["./canary_ut"]
+
 FROM ubuntu:24.04 AS runtime
 
 ARG DEBIAN_FRONTEND=noninteractive

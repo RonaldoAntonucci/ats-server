@@ -42,29 +42,8 @@ bool TalkActions::checkWord(const std::shared_ptr<Player> &player, SpeakClasses 
 		return false;
 	}
 
-	// Switch to get the allowed group level for an account
-	auto allowedGroupLevelForAccount = [](AccountType account) -> GroupType {
-		switch (account) {
-			case ACCOUNT_TYPE_NORMAL:
-				return GROUP_TYPE_NORMAL;
-			case ACCOUNT_TYPE_TUTOR:
-				return GROUP_TYPE_TUTOR;
-			case ACCOUNT_TYPE_SENIORTUTOR:
-				return GROUP_TYPE_SENIORTUTOR;
-			case ACCOUNT_TYPE_GAMEMASTER:
-				return GROUP_TYPE_GAMEMASTER;
-			case ACCOUNT_TYPE_COMMUNITYMANAGER:
-				return GROUP_TYPE_COMMUNITYMANAGER;
-			case ACCOUNT_TYPE_GOD:
-				return GROUP_TYPE_GOD;
-			default:
-				g_logger().warn("[TalkActions::checkWord] Error invalid account type: {}", account);
-				return GROUP_TYPE_NONE;
-		}
-	};
-
 	// Check if player has permission for the talk action
-	if (player->getAccountType() != ACCOUNT_TYPE_GOD && talkActionPtr->getGroupType() > allowedGroupLevelForAccount(static_cast<AccountType>(player->getAccountType()))) {
+	if (!talkActionPtr->canExecute(static_cast<AccountType>(player->getAccountType()))) {
 		return false;
 	}
 
@@ -159,6 +138,36 @@ bool TalkAction::executeSay(const std::shared_ptr<Player> &player, const std::st
 	LuaScriptInterface::pushNumber(L, static_cast<lua_Number>(type));
 
 	return getScriptInterface()->callFunction(4);
+}
+
+bool TalkAction::canExecute(AccountType accountType) const {
+	if (accountType == ACCOUNT_TYPE_GOD) {
+		return true;
+	}
+
+	GroupType allowedGroup = GROUP_TYPE_NONE;
+	switch (accountType) {
+		case ACCOUNT_TYPE_NORMAL:
+			allowedGroup = GROUP_TYPE_NORMAL;
+			break;
+		case ACCOUNT_TYPE_TUTOR:
+			allowedGroup = GROUP_TYPE_TUTOR;
+			break;
+		case ACCOUNT_TYPE_SENIORTUTOR:
+			allowedGroup = GROUP_TYPE_SENIORTUTOR;
+			break;
+		case ACCOUNT_TYPE_GAMEMASTER:
+			allowedGroup = GROUP_TYPE_GAMEMASTER;
+			break;
+		case ACCOUNT_TYPE_COMMUNITYMANAGER:
+			allowedGroup = GROUP_TYPE_COMMUNITYMANAGER;
+			break;
+		default:
+			g_logger().warn("[TalkAction::canExecute] Error invalid account type: {}", accountType);
+			break;
+	}
+
+	return m_groupType <= allowedGroup;
 }
 
 void TalkAction::setGroupType(uint8_t newGroupType) {

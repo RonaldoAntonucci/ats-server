@@ -48,6 +48,7 @@ class Weapon;
 class Spell;
 class Charm;
 class BatchUpdate;
+class Player;
 struct ModalWindow;
 struct Group;
 struct Mount;
@@ -142,6 +143,11 @@ struct LuaUserdataTraits<MonsterType> {
 template <>
 struct LuaUserdataTraits<Mount> {
 	static constexpr std::string_view name = "Mount";
+};
+
+template <>
+struct LuaUserdataTraits<Player> {
+	static constexpr std::string_view name = "Player";
 };
 
 template <>

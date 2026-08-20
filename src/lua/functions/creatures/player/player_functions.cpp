@@ -187,6 +187,9 @@ void PlayerFunctions::init(lua_State* L) {
 	Lua::registerMethod(L, "Player", "addExperience", PlayerFunctions::luaPlayerAddExperience);
 	Lua::registerMethod(L, "Player", "removeExperience", PlayerFunctions::luaPlayerRemoveExperience);
 	Lua::registerMethod(L, "Player", "getLevel", PlayerFunctions::luaPlayerGetLevel);
+	Lua::registerMethod(L, "Player", "getDisciplineProfile", PlayerFunctions::luaPlayerGetDisciplineProfile);
+	Lua::registerMethod(L, "Player", "addDisciplineRank", PlayerFunctions::luaPlayerAddDisciplineRank);
+	Lua::registerMethod(L, "Player", "removeDisciplineRank", PlayerFunctions::luaPlayerRemoveDisciplineRank);
 
 	Lua::registerMethod(L, "Player", "getMagicShieldCapacityFlat", PlayerFunctions::luaPlayerGetMagicShieldCapacityFlat);
 	Lua::registerMethod(L, "Player", "getMagicShieldCapacityPercent", PlayerFunctions::luaPlayerGetMagicShieldCapacityPercent);
@@ -1437,6 +1440,110 @@ int PlayerFunctions::luaPlayerGetLevel(lua_State* L) {
 		lua_pushnil(L);
 	}
 	return 1;
+}
+
+namespace {
+	const char* disciplineResultCode(DisciplineMutationResult result) {
+		switch (result) {
+			case DisciplineMutationResult::Success:
+				return "success";
+			case DisciplineMutationResult::UnknownDiscipline:
+				return "unknown_discipline";
+			case DisciplineMutationResult::NotOwned:
+				return "not_owned";
+			case DisciplineMutationResult::RankLimit:
+				return "rank_limit";
+			case DisciplineMutationResult::InvalidId:
+				return "invalid_id";
+		}
+		return "invalid_id";
+	}
+
+	bool disciplineId(lua_State* L, uint16_t &id) {
+		if (!lua_isnumber(L, 2)) {
+			return false;
+		}
+		const auto value = lua_tonumber(L, 2);
+		if (value < 1 || value > std::numeric_limits<uint16_t>::max() || std::floor(value) != value) {
+			return false;
+		}
+		id = static_cast<uint16_t>(value);
+		return true;
+	}
+
+	int pushDisciplineMutation(lua_State* L, DisciplineMutation mutation) {
+		Lua::pushBoolean(L, mutation.success());
+		lua_pushnumber(L, mutation.before);
+		lua_pushnumber(L, mutation.after);
+		Lua::pushString(L, disciplineResultCode(mutation.result));
+		return 4;
+	}
+}
+
+/***
+ * @function Player:getDisciplineProfile
+ * @return { attributes: { for: integer, des: integer, vit: integer, int: integer, von: integer }, disciplines: { id: integer, name: string, rank: integer }[] }|nil
+ */
+int PlayerFunctions::luaPlayerGetDisciplineProfile(lua_State* L) {
+	const auto &player = Lua::getUserdataShared<Player>(L, 1, "Player");
+	if (!player) {
+		lua_pushnil(L);
+		return 1;
+	}
+	const auto profile = player->disciplines().profile(player->getLevel());
+	lua_createtable(L, 0, 2);
+	lua_createtable(L, 0, 5);
+	Lua::setField(L, "for", profile.attributes[0]);
+	Lua::setField(L, "des", profile.attributes[1]);
+	Lua::setField(L, "vit", profile.attributes[2]);
+	Lua::setField(L, "int", profile.attributes[3]);
+	Lua::setField(L, "von", profile.attributes[4]);
+	lua_setfield(L, -2, "attributes");
+	lua_createtable(L, static_cast<int>(profile.disciplines.size()), 0);
+	int index = 0;
+	for (const auto &discipline : profile.disciplines) {
+		lua_createtable(L, 0, 3);
+		Lua::setField(L, "id", discipline.id);
+		Lua::setField(L, "name", discipline.name);
+		Lua::setField(L, "rank", discipline.rank);
+		lua_rawseti(L, -2, ++index);
+	}
+	lua_setfield(L, -2, "disciplines");
+	return 1;
+}
+
+/***
+ * @function Player:addDisciplineRank
+ * @param id integer
+ * @return boolean success
+ * @return integer before
+ * @return integer after
+ * @return "success"|"unknown_discipline"|"rank_limit"|"invalid_id" resultCode
+ */
+int PlayerFunctions::luaPlayerAddDisciplineRank(lua_State* L) {
+	const auto &player = Lua::getUserdataShared<Player>(L, 1, "Player");
+	uint16_t id = 0;
+	if (!player || !disciplineId(L, id)) {
+		return pushDisciplineMutation(L, { .result = DisciplineMutationResult::InvalidId });
+	}
+	return pushDisciplineMutation(L, player->disciplines().addRank(id));
+}
+
+/***
+ * @function Player:removeDisciplineRank
+ * @param id integer
+ * @return boolean success
+ * @return integer before
+ * @return integer after
+ * @return "success"|"unknown_discipline"|"not_owned"|"invalid_id" resultCode
+ */
+int PlayerFunctions::luaPlayerRemoveDisciplineRank(lua_State* L) {
+	const auto &player = Lua::getUserdataShared<Player>(L, 1, "Player");
+	uint16_t id = 0;
+	if (!player || !disciplineId(L, id)) {
+		return pushDisciplineMutation(L, { .result = DisciplineMutationResult::InvalidId });
+	}
+	return pushDisciplineMutation(L, player->disciplines().removeRank(id));
 }
 
 int PlayerFunctions::luaPlayerGetMagicShieldCapacityFlat(lua_State* L) {

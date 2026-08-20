@@ -12,6 +12,7 @@
 #include "core.hpp"
 #include "config/configmanager.hpp"
 #include "creatures/npcs/npcs.hpp"
+#include "creatures/players/disciplines/discipline.hpp"
 #include "creatures/players/grouping/familiars.hpp"
 #include "creatures/players/imbuements/imbuements.hpp"
 #include "creatures/players/storages/storages.hpp"
@@ -544,6 +545,9 @@ void CanaryServer::loadModules() {
 	// Load XML folder dependencies (order matters)
 	timedLoad("XML/vocations.xml", [] {
 		return g_vocations().loadFromXml();
+	});
+	timedLoad("XML/disciplines.xml", [] {
+		return g_disciplines().loadFromXml();
 	});
 	timedLoad("XML/outfits.xml", [] {
 		return Outfits::getInstance().loadFromXml();

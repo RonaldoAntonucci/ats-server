@@ -50,6 +50,7 @@ public:
 
 	// scripting
 	bool executeSay(const std::shared_ptr<Player> &player, const std::string &words, const std::string &param, SpeakClasses type) const;
+	[[nodiscard]] bool canExecute(AccountType accountType) const;
 	//
 
 	void setGroupType(uint8_t newGroupType);

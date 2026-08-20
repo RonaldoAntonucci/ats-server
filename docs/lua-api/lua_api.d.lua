@@ -3018,6 +3018,13 @@ function Player:addCharmPoints(charms) end
 ---@return boolean
 function Player:addCustomOutfit(type, idOrName) end
 
+---@param id integer
+---@return boolean success
+---@return integer before
+---@return integer after
+---@return "success"|"unknown_discipline"|"rank_limit"|"invalid_id" resultCode
+function Player:addDisciplineRank(id) end
+
 ---@param experience number
 ---@param sendText? boolean
 ---@return boolean|nil
@@ -3302,6 +3309,9 @@ function Player:getDepotChest(depotId, autoCreate) end
 ---@param depotId number
 ---@return boolean|nil|Item
 function Player:getDepotLocker(depotId) end
+
+---@return { attributes: { for: integer, des: integer, vit: integer, int: integer, von: integer }, disciplines: { id: integer, name: string, rank: integer }[] }|nil
+function Player:getDisciplineProfile() end
 
 ---@param skillType any
 ---@return number|nil
@@ -3731,6 +3741,13 @@ function Player:removeBlessing(blessing) end
 ---@param idOrName number|string
 ---@return boolean
 function Player:removeCustomOutfit(type, idOrName) end
+
+---@param id integer
+---@return boolean success
+---@return integer before
+---@return integer after
+---@return "success"|"unknown_discipline"|"not_owned"|"invalid_id" resultCode
+function Player:removeDisciplineRank(id) end
 
 ---@param experience number
 ---@param sendText? boolean
