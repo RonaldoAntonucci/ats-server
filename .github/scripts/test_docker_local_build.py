@@ -12,6 +12,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCKERFILE = REPO_ROOT / "docker" / "Dockerfile"
 BASE_COMPOSE = REPO_ROOT / "docker" / "docker-compose.yml"
 LOCAL_COMPOSE = REPO_ROOT / "docker" / "docker-compose.local.yml"
+LOCAL_BUILD_COMPOSE = REPO_ROOT / "docker" / "docker-compose.local-build.yml"
 
 
 class CanonicalDockerfileContractTests(unittest.TestCase):
@@ -108,6 +109,34 @@ class LocalRuntimeComposeContractTests(unittest.TestCase):
 	def test_base_quickstart_keeps_published_image_default(self) -> None:
 		content = BASE_COMPOSE.read_text(encoding="utf-8")
 		self.assertIn('${CANARY_IMAGE:-ghcr.io/opentibiabr/canary:latest}', content)
+
+
+class LocalBuildComposeContractTests(unittest.TestCase):
+	def render_build_compose(self) -> dict:
+		return LocalRuntimeComposeContractTests.render_compose(
+			self,
+			BASE_COMPOSE,
+			LOCAL_COMPOSE,
+			LOCAL_BUILD_COMPOSE,
+		)
+
+	def test_build_context_resolves_to_repository_root(self) -> None:
+		server_build = self.render_build_compose()["services"]["server"]["build"]
+		self.assertEqual(str(REPO_ROOT), server_build["context"])
+
+	def test_build_uses_canonical_dockerfile(self) -> None:
+		server_build = self.render_build_compose()["services"]["server"]["build"]
+		self.assertEqual("docker/Dockerfile", server_build["dockerfile"])
+
+	def test_build_overlay_scopes_definition_to_server_without_token_arg(self) -> None:
+		content = LOCAL_BUILD_COMPOSE.read_text(encoding="utf-8")
+		self.assertRegex(content, r"services:\s+server:\s+build:")
+		self.assertNotIn("myaac:", content)
+		self.assertNotIn("GITHUB_TOKEN", content)
+
+	def test_build_output_keeps_local_image_tag(self) -> None:
+		server = self.render_build_compose()["services"]["server"]
+		self.assertEqual("ats-server:local", server["image"])
 
 
 if __name__ == "__main__":
