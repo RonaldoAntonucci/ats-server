@@ -305,12 +305,12 @@ the Docker service name.
 
 ```env
 CANARY_TEST_ACCOUNTS=true
-CANARY_DATA_PACK=data-otservbr-global
+CANARY_DATA_PACK=data-canary
 CANARY_MAP_URL=https://github.com/opentibiabr/canary/releases/download/v3.6.1/otservbr.otbm
 ```
 
 The Docker image intentionally does not embed the large `.otbm` map file. On the
-first run with `CANARY_DATA_PACK=data-otservbr-global`, the entrypoint downloads
+first run with `CANARY_DATA_PACK=data-canary`, the entrypoint downloads
 the map from `CANARY_MAP_URL` if it is missing.
 
 When `CANARY_TEST_ACCOUNTS=true`, the container imports:
