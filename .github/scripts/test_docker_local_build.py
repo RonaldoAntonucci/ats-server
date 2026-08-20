@@ -13,6 +13,7 @@ DOCKERFILE = REPO_ROOT / "docker" / "Dockerfile"
 BASE_COMPOSE = REPO_ROOT / "docker" / "docker-compose.yml"
 LOCAL_COMPOSE = REPO_ROOT / "docker" / "docker-compose.local.yml"
 LOCAL_BUILD_COMPOSE = REPO_ROOT / "docker" / "docker-compose.local-build.yml"
+LOCAL_AUTH_COMPOSE = REPO_ROOT / "docker" / "docker-compose.local-auth.yml"
 
 
 class CanonicalDockerfileContractTests(unittest.TestCase):
@@ -70,9 +71,15 @@ class CanonicalDockerfileContractTests(unittest.TestCase):
 
 
 class LocalRuntimeComposeContractTests(unittest.TestCase):
-	def render_compose(self, *files: Path) -> dict:
+	def render_compose(
+		self,
+		*files: Path,
+		environment_overrides: dict[str, str] | None = None,
+	) -> dict:
 		environment = os.environ.copy()
 		environment["CANARY_LOCAL_PLATFORM"] = "linux/arm64"
+		if environment_overrides:
+			environment.update(environment_overrides)
 		command = ["docker", "compose"]
 		for compose_file in files:
 			command.extend(("-f", str(compose_file)))
@@ -137,6 +144,49 @@ class LocalBuildComposeContractTests(unittest.TestCase):
 	def test_build_output_keeps_local_image_tag(self) -> None:
 		server = self.render_build_compose()["services"]["server"]
 		self.assertEqual("ats-server:local", server["image"])
+
+
+class LocalAuthComposeContractTests(unittest.TestCase):
+	def render_auth_compose(self, token: str) -> dict:
+		return LocalRuntimeComposeContractTests.render_compose(
+			self,
+			BASE_COMPOSE,
+			LOCAL_COMPOSE,
+			LOCAL_BUILD_COMPOSE,
+			LOCAL_AUTH_COMPOSE,
+			environment_overrides={"GITHUB_TOKEN": token},
+		)
+
+	def test_auth_secret_reads_from_github_token_environment(self) -> None:
+		config = self.render_auth_compose("contract-sentinel-token")
+		self.assertEqual("GITHUB_TOKEN", config["secrets"]["github_token"]["environment"])
+
+	def test_auth_secret_is_granted_only_to_server_build(self) -> None:
+		config = self.render_auth_compose("contract-sentinel-token")
+		self.assertEqual(
+			[{"source": "github_token", "target": "github_token"}],
+			config["services"]["server"]["build"]["secrets"],
+		)
+		self.assertNotIn("secrets", config["services"]["myaac"]["build"])
+
+	def test_no_token_compose_combination_has_no_build_secret(self) -> None:
+		config = LocalRuntimeComposeContractTests.render_compose(
+			self,
+			BASE_COMPOSE,
+			LOCAL_COMPOSE,
+			LOCAL_BUILD_COMPOSE,
+		)
+		self.assertNotIn("secrets", config)
+		self.assertNotIn("secrets", config["services"]["server"]["build"])
+
+	def test_sentinel_token_is_absent_from_rendered_config_and_image_contract(self) -> None:
+		sentinel = "contract-sentinel-token"
+		rendered = json.dumps(self.render_auth_compose(sentinel), sort_keys=True)
+		dockerfile = DOCKERFILE.read_text(encoding="utf-8")
+		self.assertNotIn(sentinel, rendered)
+		self.assertNotIn(sentinel, dockerfile)
+		self.assertIn('rm -f "${NUGET_CONFIG}"', dockerfile)
+		self.assertIsNone(re.search(r"^(?:ARG|ENV)\s+(?:GITHUB_TOKEN|NUGET_AUTH_TOKEN)", dockerfile, re.MULTILINE))
 
 
 if __name__ == "__main__":

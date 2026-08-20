@@ -1,0 +1,10 @@
+services:
+  server:
+    build:
+      secrets:
+        - source: github_token
+          target: github_token
+
+secrets:
+  github_token:
+    environment: GITHUB_TOKEN
