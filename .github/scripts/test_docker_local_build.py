@@ -543,6 +543,20 @@ class DockerWorkflowContractTests(unittest.TestCase):
 		for expected in ("test -x /bin/canary", "test -x /canary/start.sh", "test -f /canary/schema.sql", "otservbr.otbm"):
 			self.assertIn(expected, self.workflow)
 
+	def test_pr_image_validation_rejects_a_persisted_build_secret(self) -> None:
+		for expected in (
+			"BUILD_SECRET_SENTINEL: ${{ github.token }}",
+			'[ -n "${BUILD_SECRET_SENTINEL}" ]',
+			'docker image inspect "${image}"',
+			'docker history --no-trunc "${image}"',
+			'grep -aFq -- "${BUILD_SECRET_SENTINEL}" <<< "${image_metadata}"',
+			'docker export --output "${runtime_export}" "${container_id}"',
+			'grep -aFq -- "${BUILD_SECRET_SENTINEL}" "${runtime_export}"',
+			'rm -f "${runtime_export}"',
+		):
+			self.assertIn(expected, self.workflow)
+		self.assertNotIn('echo "${BUILD_SECRET_SENTINEL}"', self.workflow)
+
 	def test_quickstart_consumes_image_artifact_from_build_dependency(self) -> None:
 		self.assertIn("name: canary-docker-image", self.quickstart)
 		self.assertIn("CANARY_IMAGE_TAR: artifacts/docker-image/canary-pr.tar", self.quickstart)
