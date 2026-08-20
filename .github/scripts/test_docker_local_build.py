@@ -43,10 +43,16 @@ class CanonicalDockerfileContractTests(unittest.TestCase):
 		cls.content = DOCKERFILE.read_text(encoding="utf-8")
 
 	def test_amd64_maps_to_x64_linux(self) -> None:
-		self.assertRegex(self.content, r"amd64\)\s+VCPKG_TRIPLET=x64-linux")
+		self.assertEqual(
+			["x64-linux", "x64-linux"],
+			re.findall(r"amd64\)\s+VCPKG_TRIPLET=([^;\s]+)", self.content),
+		)
 
 	def test_arm64_maps_to_arm64_linux(self) -> None:
-		self.assertRegex(self.content, r"arm64\)\s+VCPKG_TRIPLET=arm64-linux")
+		self.assertEqual(
+			["arm64-linux", "arm64-linux"],
+			re.findall(r"arm64\)\s+VCPKG_TRIPLET=([^;\s]+)", self.content),
+		)
 
 	def test_unsupported_architecture_fails_explicitly(self) -> None:
 		self.assertIn('Unsupported TARGETARCH: ${TARGETARCH}', self.content)
