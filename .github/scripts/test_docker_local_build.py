@@ -45,13 +45,13 @@ class CanonicalDockerfileContractTests(unittest.TestCase):
 
 	def test_amd64_maps_to_x64_linux(self) -> None:
 		self.assertEqual(
-			["x64-linux", "x64-linux"],
+			["x64-linux", "x64-linux", "x64-linux"],
 			re.findall(r"amd64\)\s+VCPKG_TRIPLET=([^;\s]+)", self.content),
 		)
 
 	def test_arm64_maps_to_arm64_linux(self) -> None:
 		self.assertEqual(
-			["arm64-linux", "arm64-linux"],
+			["arm64-linux", "arm64-linux", "arm64-linux"],
 			re.findall(r"arm64\)\s+VCPKG_TRIPLET=([^;\s]+)", self.content),
 		)
 
