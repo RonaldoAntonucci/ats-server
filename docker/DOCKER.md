@@ -112,42 +112,35 @@ the local tag `ats-server:local`.
 
 ### First Build And Start
 
-On Linux or macOS, explicitly request the first build:
+From the repository root, explicitly request the first build:
 
 ```bash
-sh docker/up-local.sh --rebuild
+docker compose up --build
 ```
 
-On Windows PowerShell, use the equivalent switch:
-
-```powershell
-.\docker\up-local.ps1 -Rebuild
-```
-
-The launcher builds only the `server` image, verifies that
-`ats-server:local` was created, and then starts the Compose stack with that exact
-image. A failed build prevents the stack from starting during that invocation.
+This builds the current checkout as `ats-server:local` and starts the complete
+stack. Because `--build` is a Compose-wide option, it may rebuild both Canary and MyAAC.
+A failed build prevents the services requested by this invocation
+from starting. Add `-d` if you want to run the containers in the background.
 
 ### Reuse Without Compiling
 
-For later starts, omit the rebuild switch:
+For later starts, run the same project without `--build`:
 
 ```bash
-sh docker/up-local.sh
+docker compose up
 ```
 
-```powershell
-.\docker\up-local.ps1
-```
+This reuses the existing `ats-server:local` image and never pulls a replacement
+for that tag. Use `docker compose up --build` again only when the current
+checkout must replace the local Canary image. If the MyAAC image is absent,
+Compose can still create it through its independent build definition.
 
-This path checks that `ats-server:local` already exists and starts the stack
-without giving Compose a Canary build definition. It never pulls a replacement
-for the local tag. Use `--rebuild` or `-Rebuild` again only when the current
-checkout must replace the local Canary image.
+### Compatibility launchers
 
-The MyAAC build remains independent. If its image does not exist yet, Compose
-can build MyAAC during either start path; rebuilding Canary does not force a
-MyAAC rebuild.
+The older `sh docker/up-local.sh` and `.\docker\up-local.ps1` launchers remain
+available for compatibility, including their explicit rebuild switches. The
+native Compose commands above are the primary interface for local development.
 
 ### Optional GitHub Packages Cache
 
@@ -157,17 +150,17 @@ public dependencies and uses the local vcpkg cache backed by BuildKit.
 To use an authenticated GitHub Packages cache, set `GITHUB_TOKEN`,
 `VCPKG_FEED_URL`, and `VCPKG_FEED_USERNAME` in the process environment before
 requesting a rebuild. Do not put the token in this file, a Compose build
-argument, or an image environment variable. The launcher supplies it as a
+argument, or an image environment variable. Compose supplies it as an optional
 BuildKit secret only; the feed URL and username remain non-secret build
 metadata. `VCPKG_BINARY_CACHE_MODE` is optional and defaults to `read` locally.
 
 ### Failure Recovery And Persistence
 
-If the image is missing, the launcher reports: Local image `ats-server:local` was not found.
-Run the matching command again with `--rebuild` or `-Rebuild`. If a preflight,
-dependency resolution, or compilation step fails, fix the reported problem and
-retry; the launcher does not continue to `compose up` after a failed Canary
-build.
+If `ats-server:local` does not exist, `docker compose up` builds it automatically
+before starting the stack. This is the default Compose behavior for a service
+that has both `image` and `build`. Use `docker compose up --build` when you want
+to request a rebuild even though the image already exists. If dependency
+resolution or compilation fails, fix the reported problem and retry.
 
 The local flow does not remove `db-volume` or `server-data`. Rebuilding replaces
 only the `ats-server:local` image tag, so database and Canary runtime data remain
@@ -407,7 +400,7 @@ image: ghcr.io/opentibiabr/canary:latest
 ```
 
 This keeps the Canary service lightweight for users. Local Canary compilation
-uses the separate launchers described in
+uses the native root Compose project described in
 [Build And Reuse A Local Canary Image](#build-and-reuse-a-local-canary-image).
 
 Use `CANARY_IMAGE` only when testing another published or locally loaded Canary

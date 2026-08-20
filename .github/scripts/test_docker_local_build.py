@@ -664,24 +664,18 @@ class DockerDocumentationContractTests(unittest.TestCase):
 		self.assertIn("docker compose up -d --build", self.content)
 		self.assertIn("CANARY_IMAGE=ghcr.io/opentibiabr/canary:latest", self.content)
 
-	def test_shell_documents_first_build_reuse_and_rebuild(self) -> None:
-		self.assertIn("sh docker/up-local.sh --rebuild", self.content)
-		self.assertIn("sh docker/up-local.sh", self.content)
-
-	def test_powershell_documents_first_build_reuse_and_rebuild(self) -> None:
-		self.assertIn(r".\docker\up-local.ps1 -Rebuild", self.content)
-		self.assertIn(r".\docker\up-local.ps1", self.content)
+	def test_native_root_commands_document_build_and_reuse(self) -> None:
+		self.assertIn("docker compose up --build", self.content)
+		self.assertIn("docker compose up", self.content)
+		self.assertIn("from the repository root", self.content)
 
 	def test_local_tag_and_both_linux_architectures_are_documented(self) -> None:
 		for expected in ("ats-server:local", "linux/amd64", "linux/arm64"):
 			self.assertIn(expected, self.content)
 
-	def test_missing_image_recovery_is_documented_for_both_shells(self) -> None:
-		self.assertIn("Local image `ats-server:local` was not found", self.content)
-		self.assertIn(
-			"Run the matching command again with `--rebuild` or `-Rebuild`",
-			self.content,
-		)
+	def test_missing_image_uses_the_default_automatic_first_build(self) -> None:
+		self.assertIn("If `ats-server:local` does not exist", self.content)
+		self.assertIn("`docker compose up` builds it automatically", self.content)
 
 	def test_optional_authenticated_and_local_cache_modes_are_documented(self) -> None:
 		for expected in (
@@ -693,9 +687,13 @@ class DockerDocumentationContractTests(unittest.TestCase):
 		):
 			self.assertIn(expected, self.content)
 
-	def test_myaac_independent_build_and_volume_preservation_are_documented(self) -> None:
-		self.assertIn("MyAAC build remains independent", self.content)
+	def test_myaac_rebuild_scope_and_volume_preservation_are_documented(self) -> None:
+		self.assertIn("rebuild both Canary and MyAAC", self.content)
 		self.assertIn("does not remove `db-volume` or `server-data`", self.content)
+
+	def test_compatibility_launchers_are_not_the_primary_interface(self) -> None:
+		self.assertIn("Compatibility launchers", self.content)
+		self.assertIn("native Compose commands above are the primary interface", self.content)
 
 	def test_legacy_dockerfile_names_are_absent(self) -> None:
 		for legacy in (LEGACY_X86_DOCKERFILE, LEGACY_ARM_DOCKERFILE, LEGACY_DEV_DOCKERFILE):
