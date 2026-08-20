@@ -18,6 +18,9 @@ LOCAL_BUILD_COMPOSE = REPO_ROOT / "docker" / "docker-compose.local-build.yml"
 LOCAL_AUTH_COMPOSE = REPO_ROOT / "docker" / "docker-compose.local-auth.yml"
 SHELL_LAUNCHER = REPO_ROOT / "docker" / "up-local.sh"
 POWERSHELL_LAUNCHER = REPO_ROOT / "docker" / "up-local.ps1"
+DOCKER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "reusable-build-docker.yml"
+QUICKSTART_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "reusable-docker-quickstart-smoke.yml"
+CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 
 
 class CanonicalDockerfileContractTests(unittest.TestCase):
@@ -465,6 +468,59 @@ class PowerShellLauncherContractTests(unittest.TestCase):
 	def test_logs_tag_platform_and_action(self) -> None:
 		for expected in ("ats-server:local", "Platform:", "Action: building", "Action: reusing"):
 			self.assertIn(expected, self.content)
+
+
+class DockerWorkflowContractTests(unittest.TestCase):
+	@classmethod
+	def setUpClass(cls) -> None:
+		cls.workflow = DOCKER_WORKFLOW.read_text(encoding="utf-8")
+		cls.quickstart = QUICKSTART_WORKFLOW.read_text(encoding="utf-8")
+		cls.ci = CI_WORKFLOW.read_text(encoding="utf-8")
+
+	def test_both_build_steps_use_canonical_dockerfile(self) -> None:
+		self.assertEqual(2, self.workflow.count("file: docker/Dockerfile\n"))
+		self.assertNotIn("Dockerfile.x86", self.workflow)
+
+	def test_local_docker_contracts_run_in_ci(self) -> None:
+		self.assertIn("python3 .github/scripts/test_docker_local_build.py", self.workflow)
+
+	def test_workflow_inputs_are_preserved(self) -> None:
+		for expected in ("release_tag:", "checkout_ref:", "vcpkg_binary_cache_mode:"):
+			self.assertIn(expected, self.workflow)
+
+	def test_binary_cache_modes_are_preserved(self) -> None:
+		self.assertIn("VCPKG_BINARY_CACHE_MODE=readwrite", self.workflow)
+		self.assertIn("VCPKG_BINARY_CACHE_MODE=${{ inputs.vcpkg_binary_cache_mode }}", self.workflow)
+
+	def test_build_secret_is_preserved_for_both_builds(self) -> None:
+		self.assertEqual(2, self.workflow.count("github_token=${{ github.token }}"))
+
+	def test_main_and_pr_tags_are_preserved(self) -> None:
+		for expected in (":latest", ":${{ steps.gitversion.outputs.semVer }}", ":pr"):
+			self.assertIn(expected, self.workflow)
+
+	def test_gha_cache_is_preserved_for_both_builds(self) -> None:
+		self.assertEqual(2, self.workflow.count("cache-from: type=gha"))
+		self.assertEqual(2, self.workflow.count("cache-to: type=gha,mode=max"))
+
+	def test_pr_image_and_binary_artifacts_are_preserved(self) -> None:
+		for expected in (
+			"outputs: type=docker,dest=artifacts/docker-image/canary-pr.tar",
+			"name: canary-docker-image",
+			"name: canary-docker",
+			"artifacts/docker-rootfs/bin/canary",
+		):
+			self.assertIn(expected, self.workflow)
+
+	def test_runtime_content_assertions_are_preserved(self) -> None:
+		for expected in ("test -x /bin/canary", "test -x /canary/start.sh", "test -f /canary/schema.sql", "otservbr.otbm"):
+			self.assertIn(expected, self.workflow)
+
+	def test_quickstart_consumes_image_artifact_from_build_dependency(self) -> None:
+		self.assertIn("name: canary-docker-image", self.quickstart)
+		self.assertIn("CANARY_IMAGE_TAR: artifacts/docker-image/canary-pr.tar", self.quickstart)
+		self.assertIn("needs: [changes, checks, tests-lua, build-docker]", self.ci)
+		self.assertIn("needs.build-docker.result == 'success'", self.ci)
 
 
 if __name__ == "__main__":
