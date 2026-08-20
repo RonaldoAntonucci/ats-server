@@ -3812,6 +3812,11 @@ C++ Lua binding handlers and registration lines can override inferred signatures
 - Returns: `boolean`
 - Source: `src/lua/functions/creatures/player/player_functions.cpp`
 
+#### `Player:addDisciplineRank(id: integer)`
+
+- Returns: `boolean success, integer before, integer after, "success"|"unknown_discipline"|"rank_limit"|"invalid_id" resultCode`
+- Source: `src/lua/functions/creatures/player/player_functions.cpp`
+
 #### `Player:addExperience(experience: number, sendText?: boolean)`
 
 - Returns: `boolean|nil`
@@ -4148,6 +4153,11 @@ C++ Lua binding handlers and registration lines can override inferred signatures
 #### `Player:getDepotLocker(depotId: number)`
 
 - Returns: `boolean|nil|Item`
+- Source: `src/lua/functions/creatures/player/player_functions.cpp`
+
+#### `Player:getDisciplineProfile()`
+
+- Returns: `{ attributes: { for: integer, des: integer, vit: integer, int: integer, von: integer }, disciplines: { id: integer, name: string, rank: integer }[] }|nil`
 - Source: `src/lua/functions/creatures/player/player_functions.cpp`
 
 #### `Player:getEffectiveSkillLevel(skillType: any)`
@@ -4773,6 +4783,11 @@ C++ Lua binding handlers and registration lines can override inferred signatures
 #### `Player:removeCustomOutfit(type: string, idOrName: number|string)`
 
 - Returns: `boolean`
+- Source: `src/lua/functions/creatures/player/player_functions.cpp`
+
+#### `Player:removeDisciplineRank(id: integer)`
+
+- Returns: `boolean success, integer before, integer after, "success"|"unknown_discipline"|"not_owned"|"invalid_id" resultCode`
 - Source: `src/lua/functions/creatures/player/player_functions.cpp`
 
 #### `Player:removeExperience(experience: number, sendText?: boolean)`

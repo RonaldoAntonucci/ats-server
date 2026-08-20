@@ -5680,6 +5680,14 @@
         "source": "src/lua/functions/creatures/player/player_functions.cpp"
       },
       {
+        "name": "addDisciplineRank",
+        "params": [
+          "id: integer"
+        ],
+        "return": "boolean success, integer before, integer after, \"success\"|\"unknown_discipline\"|\"rank_limit\"|\"invalid_id\" resultCode",
+        "source": "src/lua/functions/creatures/player/player_functions.cpp"
+      },
+      {
         "name": "addExperience",
         "params": [
           "experience: number",
@@ -6215,6 +6223,12 @@
           "depotId: number"
         ],
         "return": "boolean|nil|Item",
+        "source": "src/lua/functions/creatures/player/player_functions.cpp"
+      },
+      {
+        "name": "getDisciplineProfile",
+        "params": [],
+        "return": "{ attributes: { for: integer, des: integer, vit: integer, int: integer, von: integer }, disciplines: { id: integer, name: string, rank: integer }[] }|nil",
         "source": "src/lua/functions/creatures/player/player_functions.cpp"
       },
       {
@@ -7062,6 +7076,14 @@
           "idOrName: number|string"
         ],
         "return": "boolean",
+        "source": "src/lua/functions/creatures/player/player_functions.cpp"
+      },
+      {
+        "name": "removeDisciplineRank",
+        "params": [
+          "id: integer"
+        ],
+        "return": "boolean success, integer before, integer after, \"success\"|\"unknown_discipline\"|\"not_owned\"|\"invalid_id\" resultCode",
         "source": "src/lua/functions/creatures/player/player_functions.cpp"
       },
       {

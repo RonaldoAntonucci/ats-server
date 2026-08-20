@@ -22,6 +22,7 @@ enum class DisciplineMutationResult : uint8_t {
 	UnknownDiscipline,
 	NotOwned,
 	RankLimit,
+	InvalidId,
 };
 
 struct DisciplineMutation {

@@ -1,4 +1,4 @@
 target_sources(
     canary_ut
-    PRIVATE event_callback_manager_test.cpp network_message_functions_test.cpp
+    PRIVATE discipline_bindings_test.cpp event_callback_manager_test.cpp network_message_functions_test.cpp
 )
