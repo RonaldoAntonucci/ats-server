@@ -22,6 +22,7 @@ DOCKER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "reusable-build-docker.y
 QUICKSTART_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "reusable-docker-quickstart-smoke.yml"
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 LEGACY_X86_DOCKERFILE = REPO_ROOT / "docker" / ("Dockerfile" + ".x86")
+LEGACY_ARM_DOCKERFILE = REPO_ROOT / "docker" / ("Dockerfile" + ".arm")
 
 
 def tracked_docker_contract_files() -> list[Path]:
@@ -541,6 +542,13 @@ class LegacyDockerfileContractTests(unittest.TestCase):
 			if path == LEGACY_X86_DOCKERFILE or not path.is_file():
 				continue
 			self.assertNotIn(LEGACY_X86_DOCKERFILE.name, path.read_text(encoding="utf-8"), str(path.relative_to(REPO_ROOT)))
+
+	def test_arm_dockerfile_is_absent_and_unreferenced(self) -> None:
+		self.assertFalse(LEGACY_ARM_DOCKERFILE.exists())
+		for path in tracked_docker_contract_files():
+			if path == LEGACY_ARM_DOCKERFILE or not path.is_file():
+				continue
+			self.assertNotIn(LEGACY_ARM_DOCKERFILE.name, path.read_text(encoding="utf-8"), str(path.relative_to(REPO_ROOT)))
 
 
 if __name__ == "__main__":
