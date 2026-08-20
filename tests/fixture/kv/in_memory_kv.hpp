@@ -31,7 +31,17 @@ public:
 
 	KVMemory &reset() {
 		flush();
+		setCount = 0;
 		return *this;
+	}
+
+	void set(const std::string &key, const ValueWrapper &value) override {
+		++setCount;
+		KVStore::set(key, value);
+	}
+
+	[[nodiscard]] size_t writes() const {
+		return setCount;
 	}
 
 protected:
@@ -44,6 +54,9 @@ protected:
 	bool save(const std::string &key, const ValueWrapper &value) override {
 		return false;
 	}
+
+private:
+	size_t setCount = 0;
 };
 
 template <>

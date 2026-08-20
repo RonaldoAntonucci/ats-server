@@ -23,6 +23,7 @@
 #include "creatures/players/components/player_achievement.hpp"
 #include "creatures/players/components/player_badge.hpp"
 #include "creatures/players/components/player_cyclopedia.hpp"
+#include "creatures/players/components/player_disciplines.hpp"
 #include "creatures/players/components/player_forge_history.hpp"
 #include "creatures/players/components/player_storage.hpp"
 #include "creatures/players/components/player_title.hpp"
@@ -1537,6 +1538,9 @@ public:
 	PlayerStorage &storage();
 	const PlayerStorage &storage() const;
 
+	PlayerDisciplines &disciplines();
+	const PlayerDisciplines &disciplines() const;
+
 	// Player weapon proficiency interface
 	WeaponProficiency &weaponProficiency();
 	const WeaponProficiency &weaponProficiency() const;
@@ -1960,6 +1964,7 @@ private:
 	AnimusMastery m_animusMastery;
 	PlayerAttachedEffects m_playerAttachedEffects;
 	PlayerStorage m_storage;
+	PlayerDisciplines m_disciplines;
 	PlayerForgeHistory m_forgeHistoryPlayer;
 	WeaponProficiency m_weaponProficiency;
 
