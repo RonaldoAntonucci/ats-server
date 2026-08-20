@@ -33,6 +33,7 @@ target_sources(
             players/management/waitlist.cpp
             players/storages/storages.cpp
             players/player.cpp
+            players/components/character_attributes.cpp
             players/components/player_achievement.cpp
             players/components/player_attached_effects.cpp
             players/components/player_badge.cpp

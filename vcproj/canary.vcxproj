@@ -53,6 +53,7 @@
     <ClInclude Include="..\src\creatures\players\components\player_achievement.hpp" />
     <ClInclude Include="..\src\creatures\players\components\player_attached_effects.hpp" />
     <ClInclude Include="..\src\creatures\players\animus_mastery\animus_mastery.hpp" />
+    <ClInclude Include="..\src\creatures\players\components\character_attributes.hpp" />
     <ClInclude Include="..\src\creatures\players\components\player_badge.hpp" />
     <ClInclude Include="..\src\creatures\players\components\player_cyclopedia.hpp" />
     <ClInclude Include="..\src\creatures\players\components\player_forge_history.hpp" />
@@ -296,6 +297,7 @@
     <ClCompile Include="..\src\creatures\players\player.cpp" />
     <ClCompile Include="..\src\creatures\players\vocations\vocation.cpp" />
     <ClCompile Include="..\src\creatures\players\components\wheel\wheel_gems.cpp" />
+    <ClCompile Include="..\src\creatures\players\components\character_attributes.cpp" />
     <ClCompile Include="..\src\creatures\players\components\player_achievement.cpp" />
     <ClCompile Include="..\src\creatures\players\components\player_attached_effects.cpp" />
     <ClCompile Include="..\src\creatures\players\animus_mastery\animus_mastery.cpp" />

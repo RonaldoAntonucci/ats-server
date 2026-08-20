@@ -20,6 +20,7 @@
 
 // Player components are decoupled to reduce complexity. Keeping includes here aids in clarity and maintainability, but avoid including player.hpp in headers to prevent circular dependencies.
 #include "creatures/players/animus_mastery/animus_mastery.hpp"
+#include "creatures/players/components/character_attributes.hpp"
 #include "creatures/players/components/player_achievement.hpp"
 #include "creatures/players/components/player_badge.hpp"
 #include "creatures/players/components/player_cyclopedia.hpp"
@@ -1537,6 +1538,10 @@ public:
 	PlayerStorage &storage();
 	const PlayerStorage &storage() const;
 
+	// Character attributes interface
+	CharacterAttributes &characterAttributes();
+	const CharacterAttributes &characterAttributes() const;
+
 	// Player weapon proficiency interface
 	WeaponProficiency &weaponProficiency();
 	const WeaponProficiency &weaponProficiency() const;
@@ -1960,6 +1965,7 @@ private:
 	AnimusMastery m_animusMastery;
 	PlayerAttachedEffects m_playerAttachedEffects;
 	PlayerStorage m_storage;
+	CharacterAttributes m_characterAttributes;
 	PlayerForgeHistory m_forgeHistoryPlayer;
 	WeaponProficiency m_weaponProficiency;
 

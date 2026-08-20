@@ -122,6 +122,7 @@ Player::Player() :
 	m_animusMastery(*this),
 	m_playerAttachedEffects(*this),
 	m_storage(*this),
+	m_characterAttributes(*this),
 	m_forgeHistoryPlayer(*this),
 	m_weaponProficiency(*this) {
 }
@@ -140,6 +141,7 @@ Player::Player(std::shared_ptr<ProtocolGame> p) :
 	m_animusMastery(*this),
 	m_playerAttachedEffects(*this),
 	m_storage(*this),
+	m_characterAttributes(*this),
 	m_forgeHistoryPlayer(*this),
 	m_weaponProficiency(*this) {
 	baseCritical.chance = g_configManager().getFloat(PLAYER_BASE_CRITICAL_CHANCE);
@@ -12749,6 +12751,15 @@ PlayerStorage &Player::storage() {
 
 const PlayerStorage &Player::storage() const {
 	return m_storage;
+}
+
+// Character Attributes interface
+CharacterAttributes &Player::characterAttributes() {
+	return m_characterAttributes;
+}
+
+const CharacterAttributes &Player::characterAttributes() const {
+	return m_characterAttributes;
 }
 
 // Weapon Proficiency interface
