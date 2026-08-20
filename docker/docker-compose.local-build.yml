@@ -1,0 +1,10 @@
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        BUILD_JOBS: "${CANARY_BUILD_JOBS:-2}"
+        VCPKG_FEED_URL: "${VCPKG_FEED_URL:-}"
+        VCPKG_FEED_USERNAME: "${VCPKG_FEED_USERNAME:-}"
+        VCPKG_BINARY_CACHE_MODE: "${VCPKG_BINARY_CACHE_MODE:-read}"

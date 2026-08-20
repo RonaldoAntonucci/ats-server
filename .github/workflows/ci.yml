@@ -13,6 +13,7 @@ on:
       - "data-otservbr-global/**"
       - "cmake/**"
       - "docker/**"
+      - "compose.yaml"
       - "docs/lua-api/**"
       - "docs/systems/**"
       - "tools/**"
@@ -37,6 +38,7 @@ on:
       - "data-otservbr-global/**"
       - "cmake/**"
       - "docker/**"
+      - "compose.yaml"
       - "docs/lua-api/**"
       - "docs/systems/**"
       - "tools/**"
@@ -106,6 +108,7 @@ jobs:
               - "data-otservbr-global/**"
             docker:
               - "docker/**"
+              - "compose.yaml"
               - "src/**"
               - "cmake/**"
               - "vcpkg.json"

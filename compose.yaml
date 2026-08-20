@@ -1,0 +1,6 @@
+include:
+  - path:
+      - docker/docker-compose.yml
+      - docker/docker-compose.local.yml
+      - docker/docker-compose.local-build.yml
+      - docker/docker-compose.local-auth.yml

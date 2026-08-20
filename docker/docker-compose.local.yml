@@ -1,0 +1,4 @@
+services:
+  server:
+    image: ats-server:local
+    pull_policy: never

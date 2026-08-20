@@ -50,6 +50,9 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: python3 .github/scripts/release_metadata.py materialize --tag "${RELEASE_TAG}"
 
+      - name: Validate local Docker contracts
+        run: python3 .github/scripts/test_docker_local_build.py
+
       - name: Install GitVersion
         uses: gittools/actions/gitversion/setup@v0.9.15
         with:
@@ -85,7 +88,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: docker/Dockerfile.x86
+          file: docker/Dockerfile
           push: true
           build-args: |
             VCPKG_FEED_URL=https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
@@ -104,7 +107,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: docker/Dockerfile.x86
+          file: docker/Dockerfile
           push: false
           outputs: type=docker,dest=artifacts/docker-image/canary-pr.tar
           build-args: |
@@ -121,15 +124,38 @@ jobs:
       - name: Validate Docker image (PR)
         if: github.event_name != 'push' || github.ref != 'refs/heads/main'
         shell: bash
+        env:
+          BUILD_SECRET_SENTINEL: ${{ github.token }}
         run: |
           set -euo pipefail
 
+          [ -n "${BUILD_SECRET_SENTINEL}" ] || {
+            echo "The build secret comparison value is empty." >&2
+            exit 1
+          }
+
           image="ghcr.io/${{ steps.repo_lower.outputs.value }}:pr"
+          runtime_export="${RUNNER_TEMP}/canary-runtime.tar"
           docker load --input artifacts/docker-image/canary-pr.tar
 
           container_id="$(docker create "${image}")"
-          trap 'docker rm -f "${container_id}" >/dev/null 2>&1 || true' EXIT
+          trap 'docker rm -f "${container_id}" >/dev/null 2>&1 || true; rm -f "${runtime_export}"' EXIT
           docker cp "${container_id}:/bin/canary" artifacts/docker-rootfs/bin/canary
+
+          image_metadata="$(
+            docker image inspect "${image}"
+            docker history --no-trunc "${image}"
+          )"
+          if grep -aFq -- "${BUILD_SECRET_SENTINEL}" <<< "${image_metadata}"; then
+            echo "The build secret persisted in Docker image metadata." >&2
+            exit 1
+          fi
+
+          docker export --output "${runtime_export}" "${container_id}"
+          if grep -aFq -- "${BUILD_SECRET_SENTINEL}" "${runtime_export}"; then
+            echo "The build secret persisted in the runtime filesystem." >&2
+            exit 1
+          fi
 
           docker run --rm --entrypoint /bin/sh "${image}" -lc '
             test -x /bin/canary &&
