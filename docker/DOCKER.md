@@ -98,6 +98,82 @@ Remove persisted database and server data:
 docker compose down -v
 ```
 
+## Build And Reuse A Local Canary Image
+
+The quickstart above remains based on the published `CANARY_IMAGE`. Use this
+separate development flow when the current checkout must be compiled into a
+Linux image and run entirely inside Docker. Run all commands in this section
+from the repository root.
+
+Docker selects the engine's native Linux architecture: `linux/amd64` on AMD64
+and `linux/arm64` on ARM64. The Canary toolchain and compilation stay inside the
+image build; no host C++ toolchain is required. The resulting image always uses
+the local tag `ats-server:local`.
+
+### First Build And Start
+
+On Linux or macOS, explicitly request the first build:
+
+```bash
+sh docker/up-local.sh --rebuild
+```
+
+On Windows PowerShell, use the equivalent switch:
+
+```powershell
+.\docker\up-local.ps1 -Rebuild
+```
+
+The launcher builds only the `server` image, verifies that
+`ats-server:local` was created, and then starts the Compose stack with that exact
+image. A failed build prevents the stack from starting during that invocation.
+
+### Reuse Without Compiling
+
+For later starts, omit the rebuild switch:
+
+```bash
+sh docker/up-local.sh
+```
+
+```powershell
+.\docker\up-local.ps1
+```
+
+This path checks that `ats-server:local` already exists and starts the stack
+without giving Compose a Canary build definition. It never pulls a replacement
+for the local tag. Use `--rebuild` or `-Rebuild` again only when the current
+checkout must replace the local Canary image.
+
+The MyAAC build remains independent. If its image does not exist yet, Compose
+can build MyAAC during either start path; rebuilding Canary does not force a
+MyAAC rebuild.
+
+### Optional GitHub Packages Cache
+
+No GitHub credential is required. Without `GITHUB_TOKEN`, the build resolves
+public dependencies and uses the local vcpkg cache backed by BuildKit.
+
+To use an authenticated GitHub Packages cache, set `GITHUB_TOKEN`,
+`VCPKG_FEED_URL`, and `VCPKG_FEED_USERNAME` in the process environment before
+requesting a rebuild. Do not put the token in this file, a Compose build
+argument, or an image environment variable. The launcher supplies it as a
+BuildKit secret only; the feed URL and username remain non-secret build
+metadata. `VCPKG_BINARY_CACHE_MODE` is optional and defaults to `read` locally.
+
+### Failure Recovery And Persistence
+
+If the image is missing, the launcher reports: Local image `ats-server:local` was not found.
+Run the matching command again with `--rebuild` or `-Rebuild`. If a preflight,
+dependency resolution, or compilation step fails, fix the reported problem and
+retry; the launcher does not continue to `compose up` after a failed Canary
+build.
+
+The local flow does not remove `db-volume` or `server-data`. Rebuilding replaces
+only the `ats-server:local` image tag, so database and Canary runtime data remain
+available. Avoid `docker compose down -v` unless deleting those volumes is
+intentional.
+
 ## Safe Docker Cleanup
 
 Docker can accumulate old build cache and unused layers after repeated builds.
@@ -331,8 +407,8 @@ image: ghcr.io/opentibiabr/canary:latest
 ```
 
 This keeps the Canary service lightweight for users. Local Canary compilation
-should live in a separate development compose file that uses
-`docker/Dockerfile.dev` and the required vcpkg cache credentials.
+uses the separate launchers described in
+[Build And Reuse A Local Canary Image](#build-and-reuse-a-local-canary-image).
 
 Use `CANARY_IMAGE` only when testing another published or locally loaded Canary
 runtime image. The default quickstart should stay on the official image.
@@ -347,6 +423,10 @@ The GitHub Actions job `Docker Quickstart Smoke` runs after `Build - Docker` and
 validates the user-facing quickstart with the Docker image produced by the same
 CI run whenever the Compose file, quickstart MyAAC image, seed SQL files, or the
 smoke workflow changes.
+
+The local development build and the reusable GitHub Actions build share
+`docker/Dockerfile`; CI continues to produce Linux AMD64 while an ARM64 Docker
+engine produces Linux ARM64 locally.
 
 The smoke test starts the stack from a clean database, checks that MyAAC answers
 on `http://localhost:8080`, verifies that MyAAC's `login.php` webservice is not

@@ -567,5 +567,52 @@ class LegacyDockerfileContractTests(unittest.TestCase):
 			self.assertNotIn(LEGACY_DEV_DOCKERFILE.name, path.read_text(encoding="utf-8"), str(path.relative_to(REPO_ROOT)))
 
 
+class DockerDocumentationContractTests(unittest.TestCase):
+	@classmethod
+	def setUpClass(cls) -> None:
+		cls.content = DOCKER_DOC.read_text(encoding="utf-8")
+
+	def test_quickstart_contract_remains_published_image_based(self) -> None:
+		self.assertIn("docker compose up -d --build", self.content)
+		self.assertIn("CANARY_IMAGE=ghcr.io/opentibiabr/canary:latest", self.content)
+
+	def test_shell_documents_first_build_reuse_and_rebuild(self) -> None:
+		self.assertIn("sh docker/up-local.sh --rebuild", self.content)
+		self.assertIn("sh docker/up-local.sh", self.content)
+
+	def test_powershell_documents_first_build_reuse_and_rebuild(self) -> None:
+		self.assertIn(r".\docker\up-local.ps1 -Rebuild", self.content)
+		self.assertIn(r".\docker\up-local.ps1", self.content)
+
+	def test_local_tag_and_both_linux_architectures_are_documented(self) -> None:
+		for expected in ("ats-server:local", "linux/amd64", "linux/arm64"):
+			self.assertIn(expected, self.content)
+
+	def test_missing_image_recovery_is_documented_for_both_shells(self) -> None:
+		self.assertIn("Local image `ats-server:local` was not found", self.content)
+		self.assertIn(
+			"Run the matching command again with `--rebuild` or `-Rebuild`",
+			self.content,
+		)
+
+	def test_optional_authenticated_and_local_cache_modes_are_documented(self) -> None:
+		for expected in (
+			"GITHUB_TOKEN",
+			"VCPKG_FEED_URL",
+			"VCPKG_FEED_USERNAME",
+			"BuildKit secret",
+			"local vcpkg cache",
+		):
+			self.assertIn(expected, self.content)
+
+	def test_myaac_independent_build_and_volume_preservation_are_documented(self) -> None:
+		self.assertIn("MyAAC build remains independent", self.content)
+		self.assertIn("does not remove `db-volume` or `server-data`", self.content)
+
+	def test_legacy_dockerfile_names_are_absent(self) -> None:
+		for legacy in (LEGACY_X86_DOCKERFILE, LEGACY_ARM_DOCKERFILE, LEGACY_DEV_DOCKERFILE):
+			self.assertNotIn(legacy.name, self.content)
+
+
 if __name__ == "__main__":
 	unittest.main(verbosity=2)
