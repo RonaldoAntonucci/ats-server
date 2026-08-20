@@ -9,11 +9,13 @@
 
 #pragma once
 
-#include <cstdint>
-#include <map>
-#include <mutex>
-#include <string>
-#include <vector>
+#ifndef USE_PRECOMPILED_HEADERS
+	#include <cstdint>
+	#include <map>
+	#include <mutex>
+	#include <string>
+	#include <vector>
+#endif
 
 #include "creatures/players/disciplines/discipline.hpp"
 

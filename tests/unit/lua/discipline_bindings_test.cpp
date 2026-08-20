@@ -10,8 +10,11 @@
 #include "creatures/players/disciplines/discipline.hpp"
 #include "creatures/players/player.hpp"
 #include "kv/value_wrapper.hpp"
+#include "lua/creature/talkaction.hpp"
 #include "lua/functions/creatures/creature_functions.hpp"
 #include "lua/functions/lua_functions_loader.hpp"
+#include "enums/account_group_type.hpp"
+#include "enums/account_type.hpp"
 
 #include <gtest/gtest.h>
 
@@ -69,8 +72,7 @@ namespace {
 		}
 
 		void pushPlayer() {
-			Lua::pushUserdata<Player>(L.get(), player);
-			Lua::setMetatable(L.get(), -1, "Player");
+			Lua::pushSharedUserdata<Player>(L.get(), player);
 		}
 
 		void callProfile() {
@@ -114,6 +116,18 @@ namespace {
 		inline static di::extension::injector<>* previousTestContainer = nullptr;
 	};
 } // namespace
+
+TEST(TalkActionDisciplinePermissionTest, AllowsOnlyGamemasterAndHigherAccountTypes) {
+	TalkAction action;
+	action.setGroupType(GROUP_TYPE_GAMEMASTER);
+
+	EXPECT_FALSE(action.canExecute(ACCOUNT_TYPE_NORMAL));
+	EXPECT_FALSE(action.canExecute(ACCOUNT_TYPE_TUTOR));
+	EXPECT_FALSE(action.canExecute(ACCOUNT_TYPE_SENIORTUTOR));
+	EXPECT_TRUE(action.canExecute(ACCOUNT_TYPE_GAMEMASTER));
+	EXPECT_TRUE(action.canExecute(ACCOUNT_TYPE_COMMUNITYMANAGER));
+	EXPECT_TRUE(action.canExecute(ACCOUNT_TYPE_GOD));
+}
 
 TEST_F(DisciplineLuaBindingsTest, EmptyProfileReturnsEveryAttributeAsZero) {
 	callProfile();

@@ -15,8 +15,10 @@
 #include "kv/value_wrapper.hpp"
 #include "lib/logging/logger.hpp"
 
-#include <charconv>
-#include <limits>
+#ifndef USE_PRECOMPILED_HEADERS
+	#include <charconv>
+	#include <limits>
+#endif
 
 namespace {
 	constexpr std::string_view ranksKey = "ranks";

@@ -9,6 +9,7 @@
 
 #include "creatures/players/player.hpp"
 #include "creatures/players/disciplines/discipline.hpp"
+#include "creatures/players/vocations/vocation.hpp"
 #include "kv/value_wrapper.hpp"
 
 #include <gtest/gtest.h>
@@ -212,6 +213,69 @@ TEST_F(PlayerDisciplinesTest, DerivesArmamentoAttributesFromLevelAndRank) {
 	EXPECT_EQ(14u, attribute(profile, CharacterAttribute::Vitality));
 	EXPECT_EQ(0u, attribute(profile, CharacterAttribute::Intelligence));
 	EXPECT_EQ(0u, attribute(profile, CharacterAttribute::Willpower));
+}
+
+TEST_F(PlayerDisciplinesTest, DerivesIdenticalProfilesForDifferentVocations) {
+	player->setLevel(7);
+	ASSERT_TRUE(player->disciplines().addRank(1).success());
+	player->setTestVocation(std::make_shared<Vocation>(1));
+	ASSERT_EQ(1u, player->getVocationId());
+	const auto firstProfile = player->disciplines().profile(player->getLevel());
+
+	player->setTestVocation(std::make_shared<Vocation>(2));
+	ASSERT_EQ(2u, player->getVocationId());
+	const auto secondProfile = player->disciplines().profile(player->getLevel());
+	EXPECT_EQ(firstProfile.attributes, secondProfile.attributes);
+	ASSERT_EQ(firstProfile.disciplines.size(), secondProfile.disciplines.size());
+	EXPECT_EQ(firstProfile.disciplines.front().id, secondProfile.disciplines.front().id);
+	EXPECT_EQ(firstProfile.disciplines.front().name, secondProfile.disciplines.front().name);
+	EXPECT_EQ(firstProfile.disciplines.front().rank, secondProfile.disciplines.front().rank);
+}
+
+TEST_F(PlayerDisciplinesTest, SerializesConcurrentRankTransitions) {
+	constexpr size_t transitionCount = 32;
+	std::mutex startMutex;
+	std::condition_variable startCondition;
+	bool start = false;
+	std::vector<DisciplineMutation> mutations(transitionCount);
+	std::vector<std::thread> workers;
+	workers.reserve(transitionCount);
+
+	for (size_t index = 0; index < transitionCount; ++index) {
+		workers.emplace_back([&, index] {
+			{
+				std::unique_lock lock(startMutex);
+				startCondition.wait(lock, [&] { return start; });
+			}
+			mutations[index] = player->disciplines().addRank(1);
+		});
+	}
+	{
+		std::scoped_lock lock(startMutex);
+		start = true;
+	}
+	startCondition.notify_all();
+	for (auto &worker : workers) {
+		worker.join();
+	}
+
+	std::vector<uint32_t> observedBefore;
+	observedBefore.reserve(transitionCount);
+	for (const auto &mutation : mutations) {
+		ASSERT_TRUE(mutation.success());
+		EXPECT_EQ(mutation.before + 1, mutation.after);
+		observedBefore.push_back(mutation.before);
+	}
+	std::ranges::sort(observedBefore);
+	for (size_t index = 0; index < transitionCount; ++index) {
+		EXPECT_EQ(index, observedBefore[index]);
+	}
+
+	EXPECT_EQ(transitionCount, player->disciplines().ranks().at(1));
+	const auto persisted = persistedRanks();
+	ASSERT_TRUE(persisted.has_value());
+	EXPECT_EQ(transitionCount, static_cast<size_t>(persisted->get<MapType>().at("1")->get<IntType>()));
+	EXPECT_EQ(transitionCount, kvMemory().writes());
 }
 
 TEST_F(PlayerDisciplinesTest, ReflectsLevelChangesWithoutPersistingRanksAgain) {

@@ -498,6 +498,10 @@ public:
 	void setTestIdleTime(int32_t testIdleTimeInMs) {
 		idleTime = testIdleTimeInMs;
 	}
+
+	void setTestVocation(std::shared_ptr<Vocation> testVocation) {
+		vocation = std::move(testVocation);
+	}
 #endif
 
 	void addContainer(uint8_t cid, const std::shared_ptr<Container> &container);
