@@ -20,10 +20,21 @@
 
 namespace {
 	constexpr std::string_view ranksKey = "ranks";
+	constexpr std::array<std::string_view, static_cast<size_t>(CharacterAttribute::Last)> attributeNames {
+		"for",
+		"des",
+		"vit",
+		"int",
+		"von",
+	};
 
 	[[nodiscard]] bool parsePositiveUint16(std::string_view value, uint16_t &parsed) {
 		const auto [ptr, error] = std::from_chars(value.data(), value.data() + value.size(), parsed);
 		return error == std::errc {} && ptr == value.data() + value.size() && parsed != 0;
+	}
+
+	[[nodiscard]] bool wouldOverflow(uint64_t left, uint64_t right) {
+		return right != 0 && left > std::numeric_limits<uint64_t>::max() / right;
 	}
 }
 
@@ -34,6 +45,32 @@ const std::map<uint16_t, uint32_t> &PlayerDisciplines::ranks() const {
 	std::scoped_lock lock(mutex);
 	loadLocked();
 	return storedRanks;
+}
+
+DisciplineProfile PlayerDisciplines::profile(uint32_t level) const {
+	std::scoped_lock lock(mutex);
+	loadLocked();
+
+	DisciplineProfile profile;
+	for (const auto &[id, rank] : storedRanks) {
+		const auto* discipline = g_disciplines().get(id);
+		if (!discipline) {
+			continue;
+		}
+
+		profile.disciplines.emplace_back(id, discipline->name, rank);
+		for (size_t index = 0; index < profile.attributes.size(); ++index) {
+			const auto levelAndRank = static_cast<uint64_t>(level) * rank;
+			const auto perLevel = discipline->perLevel[index];
+			if (wouldOverflow(levelAndRank, perLevel) || wouldOverflow(profile.attributes[index], levelAndRank * perLevel)) {
+				profile.attributes[index] = std::numeric_limits<uint64_t>::max();
+				g_logger().error("[PlayerDisciplines] player={} attribute={} reason=derived attribute overflow", player.getName(), attributeNames[index]);
+				continue;
+			}
+			profile.attributes[index] += levelAndRank * perLevel;
+		}
+	}
+	return profile;
 }
 
 DisciplineMutation PlayerDisciplines::addRank(uint16_t id) {

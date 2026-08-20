@@ -19,6 +19,7 @@ enum class CharacterAttribute : uint8_t {
 };
 
 using AttributeContributions = std::array<uint32_t, static_cast<size_t>(CharacterAttribute::Last)>;
+using AttributeTotals = std::array<uint64_t, static_cast<size_t>(CharacterAttribute::Last)>;
 
 struct Discipline {
 	uint16_t id = 0;
