@@ -136,6 +136,20 @@ for that tag. Use `docker compose up --build` again only when the current
 checkout must replace the local Canary image. If the MyAAC image is absent,
 Compose can still create it through its independent build definition.
 
+The local Compose override bind-mounts `config.lua.dist`, the server startup
+script, the shared `data` directory, and the directory selected by
+`CANARY_DATA_PACK` from the current checkout. After changing configuration or
+datapack files, restart only the server service to load them without rebuilding
+the image:
+
+```bash
+docker compose restart server
+```
+
+The entrypoint still applies database, port, server address, and datapack values
+from the Compose environment after copying `config.lua.dist`. Those environment
+values therefore take precedence over the corresponding lines in the file.
+
 ### Compatibility launchers
 
 The older `sh docker/up-local.sh` and `.\docker\up-local.ps1` launchers remain

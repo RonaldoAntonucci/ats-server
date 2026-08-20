@@ -2,3 +2,24 @@ services:
   server:
     image: ats-server:local
     pull_policy: never
+    entrypoint:
+      - /bin/bash
+      - -ec
+      - |
+        cp /canary/config.project.lua /canary/config.lua
+        exec /canary/start.project.sh
+    volumes:
+      - type: bind
+        source: ../config.lua.dist
+        target: /canary/config.project.lua
+        read_only: true
+      - type: bind
+        source: ./data/start.sh
+        target: /canary/start.project.sh
+        read_only: true
+      - type: bind
+        source: ../data
+        target: /canary/data
+      - type: bind
+        source: "../${CANARY_DATA_PACK:-data-canary}"
+        target: "/canary/${CANARY_DATA_PACK:-data-canary}"

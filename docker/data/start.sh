@@ -249,6 +249,11 @@ set_lua_number "statusProtocolPort" "$CANARY_STATUS_PORT"
 set_lua_number "statusTimeout" "$CANARY_STATUS_TIMEOUT"
 set_lua_string "dataPackDirectory" "$CANARY_DATA_PACK"
 set_lua_string "mapDownloadUrl" "$CANARY_MAP_URL"
+if [ "$CANARY_DATA_PACK" = "data-canary" ]; then
+	set_lua_string "mapName" "canary"
+else
+	set_lua_string "mapName" "otservbr"
+fi
 
 echo "config.lua updated"
 

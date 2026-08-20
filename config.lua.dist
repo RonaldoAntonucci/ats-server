@@ -422,7 +422,7 @@ pushWhenAttacking = false
 -- Note: If a map with the same name already exists in the world folder, the map will not be downloaded, even if toggleDownloadMap is set to true.
 toggleDownloadMap = true
 mapDownloadUrl = "https://github.com/opentibiabr/canary/releases/download/v3.6.1/otservbr.otbm"
-mapName = "otservbr"
+mapName = "canary"
 mapAuthor = "OpenTibiaBR"
 
 -- Party List limitations
