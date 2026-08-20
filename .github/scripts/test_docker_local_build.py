@@ -4,6 +4,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -14,6 +15,7 @@ BASE_COMPOSE = REPO_ROOT / "docker" / "docker-compose.yml"
 LOCAL_COMPOSE = REPO_ROOT / "docker" / "docker-compose.local.yml"
 LOCAL_BUILD_COMPOSE = REPO_ROOT / "docker" / "docker-compose.local-build.yml"
 LOCAL_AUTH_COMPOSE = REPO_ROOT / "docker" / "docker-compose.local-auth.yml"
+SHELL_LAUNCHER = REPO_ROOT / "docker" / "up-local.sh"
 
 
 class CanonicalDockerfileContractTests(unittest.TestCase):
@@ -187,6 +189,158 @@ class LocalAuthComposeContractTests(unittest.TestCase):
 		self.assertNotIn(sentinel, dockerfile)
 		self.assertIn('rm -f "${NUGET_CONFIG}"', dockerfile)
 		self.assertIsNone(re.search(r"^(?:ARG|ENV)\s+(?:GITHUB_TOKEN|NUGET_AUTH_TOKEN)", dockerfile, re.MULTILINE))
+
+
+class ShellLauncherContractTests(unittest.TestCase):
+	def setUp(self) -> None:
+		self.temp_dir = tempfile.TemporaryDirectory()
+		self.temp_path = Path(self.temp_dir.name)
+		self.fake_bin = self.temp_path / "bin"
+		self.fake_bin.mkdir()
+		self.log_path = self.temp_path / "docker.log"
+		fake_docker = self.fake_bin / "docker"
+		fake_docker.write_text(
+			"""#!/usr/bin/env sh
+printf '%s\\n' "$*" >> "$DOCKER_FAKE_LOG"
+case "${1:-}" in
+  info)
+    [ "${FAKE_INFO_STATUS:-0}" -eq 0 ] || exit "$FAKE_INFO_STATUS"
+    printf '%s\\n' "${FAKE_DOCKER_ARCH:-arm64}"
+    ;;
+  image)
+    if [ "${2:-}" = inspect ]; then
+      exit "${FAKE_IMAGE_STATUS:-0}"
+    fi
+    ;;
+  compose)
+    case " $* " in
+      *" build server "*) exit "${FAKE_BUILD_STATUS:-0}" ;;
+      *" up -d "*) exit "${FAKE_UP_STATUS:-0}" ;;
+    esac
+    ;;
+esac
+exit 0
+""",
+			encoding="utf-8",
+		)
+		fake_docker.chmod(0o755)
+
+	def tearDown(self) -> None:
+		self.temp_dir.cleanup()
+
+	def run_launcher(self, *arguments: str, **environment_overrides: str) -> subprocess.CompletedProcess[str]:
+		environment = os.environ.copy()
+		environment["PATH"] = f"{self.fake_bin}{os.pathsep}{environment['PATH']}"
+		environment["DOCKER_FAKE_LOG"] = str(self.log_path)
+		environment["FAKE_DOCKER_ARCH"] = "arm64"
+		environment["FAKE_IMAGE_STATUS"] = "0"
+		for key in ("GITHUB_TOKEN", "VCPKG_FEED_URL", "VCPKG_FEED_USERNAME"):
+			environment.pop(key, None)
+		environment.update(environment_overrides)
+		return subprocess.run(
+			["sh", str(SHELL_LAUNCHER), *arguments],
+			cwd=REPO_ROOT,
+			env=environment,
+			capture_output=True,
+			text=True,
+		)
+
+	def docker_calls(self) -> list[str]:
+		if not self.log_path.exists():
+			return []
+		return self.log_path.read_text(encoding="utf-8").splitlines()
+
+	def test_no_argument_reuses_image_without_build_overlay(self) -> None:
+		result = self.run_launcher()
+		calls = self.docker_calls()
+		self.assertEqual(0, result.returncode, result.stderr)
+		self.assertTrue(any(call.startswith("image inspect ats-server:local") for call in calls))
+		up_call = next(call for call in calls if " up -d " in f" {call} ")
+		self.assertIn("docker-compose.local.yml", up_call)
+		self.assertNotIn("docker-compose.local-build.yml", up_call)
+
+	def test_rebuild_calls_server_build_before_runtime_up(self) -> None:
+		result = self.run_launcher("--rebuild")
+		calls = self.docker_calls()
+		build_index = next(index for index, call in enumerate(calls) if " build server " in f" {call} ")
+		up_index = next(index for index, call in enumerate(calls) if " up -d " in f" {call} ")
+		self.assertEqual(0, result.returncode, result.stderr)
+		self.assertLess(build_index, up_index)
+		self.assertIn("docker-compose.local-build.yml", calls[build_index])
+		self.assertNotIn("docker-compose.local-build.yml", calls[up_index])
+
+	def test_missing_image_without_rebuild_reports_exact_correction(self) -> None:
+		result = self.run_launcher(FAKE_IMAGE_STATUS="1")
+		self.assertNotEqual(0, result.returncode)
+		self.assertIn("sh docker/up-local.sh --rebuild", result.stderr)
+		self.assertFalse(any(" up -d " in f" {call} " for call in self.docker_calls()))
+
+	def test_build_failure_does_not_start_compose(self) -> None:
+		result = self.run_launcher("--rebuild", FAKE_BUILD_STATUS="42")
+		self.assertEqual(42, result.returncode)
+		self.assertFalse(any(" up -d " in f" {call} " for call in self.docker_calls()))
+
+	def test_amd64_engine_maps_to_linux_amd64(self) -> None:
+		result = self.run_launcher(FAKE_DOCKER_ARCH="x86_64")
+		self.assertEqual(0, result.returncode, result.stderr)
+		self.assertIn("linux/amd64", result.stdout)
+
+	def test_arm64_engine_maps_to_linux_arm64(self) -> None:
+		result = self.run_launcher(FAKE_DOCKER_ARCH="aarch64")
+		self.assertEqual(0, result.returncode, result.stderr)
+		self.assertIn("linux/arm64", result.stdout)
+
+	def test_unsupported_engine_architecture_fails_before_compose(self) -> None:
+		result = self.run_launcher(FAKE_DOCKER_ARCH="s390x")
+		self.assertNotEqual(0, result.returncode)
+		self.assertIn("Unsupported Docker architecture: s390x", result.stderr)
+		self.assertFalse(any(call.startswith("compose ") for call in self.docker_calls()))
+
+	def test_token_mode_requires_feed_url(self) -> None:
+		result = self.run_launcher(
+			"--rebuild",
+			GITHUB_TOKEN="super-secret-sentinel",
+			VCPKG_FEED_USERNAME="ats-user",
+		)
+		self.assertNotEqual(0, result.returncode)
+		self.assertIn("VCPKG_FEED_URL", result.stderr)
+
+	def test_token_mode_requires_feed_username(self) -> None:
+		result = self.run_launcher(
+			"--rebuild",
+			GITHUB_TOKEN="super-secret-sentinel",
+			VCPKG_FEED_URL="https://example.invalid/nuget",
+		)
+		self.assertNotEqual(0, result.returncode)
+		self.assertIn("VCPKG_FEED_USERNAME", result.stderr)
+
+	def test_token_mode_adds_auth_overlay_only_to_build(self) -> None:
+		result = self.run_launcher(
+			"--rebuild",
+			GITHUB_TOKEN="super-secret-sentinel",
+			VCPKG_FEED_URL="https://example.invalid/nuget",
+			VCPKG_FEED_USERNAME="ats-user",
+		)
+		calls = self.docker_calls()
+		build_call = next(call for call in calls if " build server " in f" {call} ")
+		up_call = next(call for call in calls if " up -d " in f" {call} ")
+		self.assertEqual(0, result.returncode, result.stderr)
+		self.assertIn("docker-compose.local-auth.yml", build_call)
+		self.assertNotIn("docker-compose.local-auth.yml", up_call)
+		self.assertNotIn("super-secret-sentinel", result.stdout + result.stderr + "\n".join(calls))
+
+	def test_unknown_option_fails_before_docker_call_and_shows_usage(self) -> None:
+		result = self.run_launcher("--unknown")
+		self.assertNotEqual(0, result.returncode)
+		self.assertIn("Usage:", result.stderr)
+		self.assertEqual([], self.docker_calls())
+
+	def test_logs_tag_platform_and_action_without_secrets(self) -> None:
+		result = self.run_launcher()
+		self.assertEqual(0, result.returncode, result.stderr)
+		self.assertIn("ats-server:local", result.stdout)
+		self.assertIn("linux/arm64", result.stdout)
+		self.assertIn("reusing", result.stdout.lower())
 
 
 if __name__ == "__main__":
