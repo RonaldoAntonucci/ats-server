@@ -568,6 +568,17 @@ class DockerWorkflowContractTests(unittest.TestCase):
 	def test_local_docker_contracts_run_in_ci(self) -> None:
 		self.assertIn("python3 .github/scripts/test_docker_local_build.py", self.workflow)
 
+	def test_root_compose_changes_trigger_pull_request_and_push_workflows(self) -> None:
+		self.assertEqual(2, self.ci.splitlines().count('      - "compose.yaml"'))
+
+	def test_root_compose_is_classified_as_a_docker_change(self) -> None:
+		docker_filter = self.ci.split("            docker:\n", 1)[1].split("            docker_quickstart:\n", 1)[0]
+		self.assertIn('- "compose.yaml"', docker_filter)
+
+	def test_root_compose_keeps_the_existing_docker_smoke_dependency(self) -> None:
+		self.assertIn("needs: [changes, checks, tests-lua, build-docker]", self.ci)
+		self.assertIn("needs.build-docker.result == 'success'", self.ci)
+
 	def test_workflow_inputs_are_preserved(self) -> None:
 		for expected in ("release_tag:", "checkout_ref:", "vcpkg_binary_cache_mode:"):
 			self.assertIn(expected, self.workflow)
