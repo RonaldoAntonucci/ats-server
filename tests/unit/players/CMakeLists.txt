@@ -5,6 +5,7 @@ target_sources(
 
 add_subdirectory(components)
 add_subdirectory(condition)
+add_subdirectory(disciplines)
 add_subdirectory(imbuements)
 
 target_sources(

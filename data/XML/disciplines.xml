@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<disciplines>
+	<discipline id="1" name="Armamento">
+		<attribute id="for" perLevel="1" />
+		<attribute id="des" perLevel="1" />
+		<attribute id="vit" perLevel="1" />
+	</discipline>
+</disciplines>
