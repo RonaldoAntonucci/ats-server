@@ -22,9 +22,15 @@ local registration = {}
 function TalkAction(words)
 	registration.words = words
 	local action = {
-		separator = function(_, value) registration.separator = value end,
-		groupType = function(_, value) registration.group = value end,
-		register = function() registration.registered = true end,
+		separator = function(_, value)
+			registration.separator = value
+		end,
+		groupType = function(_, value)
+			registration.group = value
+		end,
+		register = function()
+			registration.registered = true
+		end,
 	}
 	registration.action = action
 	return action
@@ -59,8 +65,12 @@ dofile("data/scripts/talkactions/gm/discipline.lua")
 local function actor(name)
 	local messages = {}
 	return {
-		getName = function() return name or "Admin" end,
-		sendTextMessage = function(_, kind, text) table.insert(messages, { kind, text }) end,
+		getName = function()
+			return name or "Admin"
+		end,
+		sendTextMessage = function(_, kind, text)
+			table.insert(messages, { kind, text })
+		end,
 		messages = messages,
 	}
 end
@@ -69,8 +79,12 @@ local function target(name, initialRank, forcedResult)
 	local messages = {}
 	local rank = initialRank or 0
 	local value = {
-		getName = function() return name end,
-		sendTextMessage = function(_, kind, text) table.insert(messages, { kind, text }) end,
+		getName = function()
+			return name
+		end,
+		sendTextMessage = function(_, kind, text)
+			table.insert(messages, { kind, text })
+		end,
 		addDisciplineRank = function(_, id)
 			if forcedResult then
 				return forcedResult(id, rank)
@@ -88,8 +102,12 @@ local function target(name, initialRank, forcedResult)
 			return true, before, rank, "success"
 		end,
 		messages = messages,
-		rank = function() return rank end,
-		profileAttribute = function(level) return rank * level end,
+		rank = function()
+			return rank
+		end,
+		profileAttribute = function(level)
+			return rank * level
+		end,
 	}
 	online[name] = value
 	return value

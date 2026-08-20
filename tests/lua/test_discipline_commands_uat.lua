@@ -3,9 +3,15 @@
 local actions = {}
 function TalkAction(words)
 	local action = {
-		groupType = function(self, value) self.group = value end,
-		separator = function(self, value) self.separatorValue = value end,
-		register = function(self) self.registered = true end,
+		groupType = function(self, value)
+			self.group = value
+		end,
+		separator = function(self, value)
+			self.separatorValue = value
+		end,
+		register = function(self)
+			self.registered = true
+		end,
 	}
 	actions[words] = action
 	return action
@@ -20,7 +26,9 @@ local rank = 0
 local level = 5
 local heroMessages = {}
 local hero = {
-	getName = function() return "Hero" end,
+	getName = function()
+		return "Hero"
+	end,
 	addDisciplineRank = function()
 		local before = rank
 		rank = rank + 1
@@ -38,8 +46,12 @@ local hero = {
 			disciplines = rank == 0 and {} or { { id = 1, name = "Armamento", rank = rank } },
 		}
 	end,
-	sendTextMessage = function(_, kind, text) table.insert(heroMessages, { kind, text }) end,
-	popupFYI = function(self, text) self.popup = text end,
+	sendTextMessage = function(_, kind, text)
+		table.insert(heroMessages, { kind, text })
+	end,
+	popupFYI = function(self, text)
+		self.popup = text
+	end,
 }
 
 function Player(name)
@@ -50,7 +62,9 @@ function Player(name)
 end
 
 local admin = {
-	getName = function() return "Admin" end,
+	getName = function()
+		return "Admin"
+	end,
 	sendTextMessage = function() end,
 }
 

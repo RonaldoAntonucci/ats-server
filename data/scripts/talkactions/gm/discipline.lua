@@ -5,15 +5,7 @@ local function trim(value)
 end
 
 local function audit(player, target, id, before, after, result)
-	logger.info(
-		"[DisciplineAdmin] actor={} target={} id={} before={} after={} result={}",
-		player:getName(),
-		target or "-",
-		id or "-",
-		before or "-",
-		after or "-",
-		result
-	)
+	logger.info("[DisciplineAdmin] actor={} target={} id={} before={} after={} result={}", player:getName(), target or "-", id or "-", before or "-", after or "-", result)
 end
 
 local function message(result)

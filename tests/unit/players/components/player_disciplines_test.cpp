@@ -63,7 +63,7 @@ namespace {
 		std::shared_ptr<Player> player;
 
 		inline static di::extension::injector<> injector {};
-	inline static di::extension::injector<>* previousTestContainer = nullptr;
+		inline static di::extension::injector<>* previousTestContainer = nullptr;
 	};
 
 	[[nodiscard]] uint64_t attribute(const DisciplineProfile &profile, CharacterAttribute type) {
@@ -132,19 +132,19 @@ TEST_F(PlayerDisciplinesTest, PersistsAnEmptyMapAfterRemovingTheLastRank) {
 
 TEST_F(PlayerDisciplinesTest, LoadsPersistedRanksLazily) {
 	player->kv()->scoped("disciplines")->set("ranks", ValueWrapper {
-		{ "1", ValueWrapper(2) },
-	});
+														  { "1", ValueWrapper(2) },
+													  });
 	EXPECT_EQ(2u, player->disciplines().ranks().at(1));
 }
 
 TEST_F(PlayerDisciplinesTest, RejectsCorruptPersistedEntriesAndKeepsValidOnes) {
 	player->kv()->scoped("disciplines")->set("ranks", ValueWrapper {
-		{ "1", ValueWrapper(2) },
-		{ "0", ValueWrapper(1) },
-		{ "bad", ValueWrapper(1) },
-		{ "2", ValueWrapper(0) },
-		{ "3", ValueWrapper("bad") },
-	});
+														  { "1", ValueWrapper(2) },
+														  { "0", ValueWrapper(1) },
+														  { "bad", ValueWrapper(1) },
+														  { "2", ValueWrapper(0) },
+														  { "3", ValueWrapper("bad") },
+													  });
 	const auto &ranks = player->disciplines().ranks();
 	ASSERT_EQ(1u, ranks.size());
 	EXPECT_EQ(2u, ranks.at(1));
@@ -153,9 +153,9 @@ TEST_F(PlayerDisciplinesTest, RejectsCorruptPersistedEntriesAndKeepsValidOnes) {
 
 TEST_F(PlayerDisciplinesTest, LoadsNumericIdsInAscendingOrder) {
 	player->kv()->scoped("disciplines")->set("ranks", ValueWrapper {
-		{ "2", ValueWrapper(3) },
-		{ "1", ValueWrapper(2) },
-	});
+														  { "2", ValueWrapper(3) },
+														  { "1", ValueWrapper(2) },
+													  });
 	const auto &ranks = player->disciplines().ranks();
 	auto it = ranks.begin();
 	ASSERT_NE(ranks.end(), it);
@@ -165,9 +165,9 @@ TEST_F(PlayerDisciplinesTest, LoadsNumericIdsInAscendingOrder) {
 
 TEST_F(PlayerDisciplinesTest, RejectsZeroAndOutOfRangeStoredIds) {
 	player->kv()->scoped("disciplines")->set("ranks", ValueWrapper {
-		{ "0", ValueWrapper(1) },
-		{ "65536", ValueWrapper(1) },
-	});
+														  { "0", ValueWrapper(1) },
+														  { "65536", ValueWrapper(1) },
+													  });
 	EXPECT_TRUE(player->disciplines().ranks().empty());
 }
 
@@ -183,8 +183,8 @@ TEST_F(PlayerDisciplinesTest, PreservesExistingRankWhenUnknownMutationIsRequeste
 
 TEST_F(PlayerDisciplinesTest, RejectsRankAtTechnicalLimitWithoutMutating) {
 	player->kv()->scoped("disciplines")->set("ranks", ValueWrapper {
-		{ "1", ValueWrapper(ValueVariant { std::numeric_limits<IntType>::max() }) },
-	});
+														  { "1", ValueWrapper(ValueVariant { std::numeric_limits<IntType>::max() }) },
+													  });
 	const auto mutation = player->disciplines().addRank(1);
 	EXPECT_EQ(DisciplineMutationResult::RankLimit, mutation.result);
 	EXPECT_EQ(static_cast<uint32_t>(std::numeric_limits<IntType>::max()), mutation.before);
@@ -290,8 +290,8 @@ TEST_F(PlayerDisciplinesTest, ReflectsLevelChangesWithoutPersistingRanksAgain) {
 
 TEST_F(PlayerDisciplinesTest, DerivesProfileFromRanksLoadedFromKv) {
 	player->kv()->scoped("disciplines")->set("ranks", ValueWrapper {
-		{ "1", ValueWrapper(2) },
-	});
+														  { "1", ValueWrapper(2) },
+													  });
 	player->setLevel(4);
 
 	const auto profile = player->disciplines().profile(player->getLevel());
@@ -344,8 +344,8 @@ TEST_F(PlayerDisciplinesTest, AppliesChangedCatalogContributionsWithoutChangingR
 
 TEST_F(PlayerDisciplinesTest, OmitsRanksMissingFromTheCurrentCatalog) {
 	player->kv()->scoped("disciplines")->set("ranks", ValueWrapper {
-		{ "2", ValueWrapper(1) },
-	});
+														  { "2", ValueWrapper(1) },
+													  });
 
 	const auto profile = player->disciplines().profile(player->getLevel());
 	EXPECT_TRUE(profile.disciplines.empty());
@@ -355,8 +355,8 @@ TEST_F(PlayerDisciplinesTest, OmitsRanksMissingFromTheCurrentCatalog) {
 TEST_F(PlayerDisciplinesTest, SaturatesOverflowingDerivedAttributeAndLogsIt) {
 	loadCatalog(R"xml(<disciplines><discipline id="1" name="Armamento"><attribute id="for" perLevel="4294967295"/></discipline></disciplines>)xml");
 	player->kv()->scoped("disciplines")->set("ranks", ValueWrapper {
-		{ "1", ValueWrapper(ValueVariant { std::numeric_limits<IntType>::max() }) },
-	});
+														  { "1", ValueWrapper(ValueVariant { std::numeric_limits<IntType>::max() }) },
+													  });
 
 	const auto profile = player->disciplines().profile(std::numeric_limits<uint32_t>::max());
 	EXPECT_EQ(std::numeric_limits<uint64_t>::max(), attribute(profile, CharacterAttribute::Strength));
@@ -370,9 +370,9 @@ TEST_F(PlayerDisciplinesTest, SaturatesAccumulatedDerivedAttributeAndLogsIt) {
 		<discipline id="2" name="Defesa"><attribute id="for" perLevel="2"/></discipline>
 	</disciplines>)xml");
 	player->kv()->scoped("disciplines")->set("ranks", ValueWrapper {
-		{ "1", ValueWrapper(ValueVariant { std::numeric_limits<IntType>::max() }) },
-		{ "2", ValueWrapper(ValueVariant { std::numeric_limits<IntType>::max() }) },
-	});
+														  { "1", ValueWrapper(ValueVariant { std::numeric_limits<IntType>::max() }) },
+														  { "2", ValueWrapper(ValueVariant { std::numeric_limits<IntType>::max() }) },
+													  });
 
 	const auto profile = player->disciplines().profile(std::numeric_limits<uint32_t>::max());
 	EXPECT_EQ(std::numeric_limits<uint64_t>::max(), attribute(profile, CharacterAttribute::Strength));

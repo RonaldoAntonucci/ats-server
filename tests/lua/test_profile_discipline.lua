@@ -22,8 +22,12 @@ local registration = {}
 function TalkAction(words)
 	registration.words = words
 	local action = {
-		groupType = function(_, group) registration.group = group end,
-		register = function() registration.registered = true end,
+		groupType = function(_, group)
+			registration.group = group
+		end,
+		register = function()
+			registration.registered = true
+		end,
 	}
 	registration.action = action
 	return action
@@ -38,7 +42,9 @@ local function playerWith(profile)
 			state.profileCalls = state.profileCalls + 1
 			return profile
 		end,
-		popupFYI = function(_, text) state.popup = text end,
+		popupFYI = function(_, text)
+			state.popup = text
+		end,
 	}
 	return player, state
 end
@@ -86,7 +92,9 @@ test("preserves the ascending order supplied by the profile API", function()
 end)
 
 test("reads only the executing player and ignores parameters", function()
-	Player = function() error("!profile must never resolve another character") end
+	Player = function()
+		error("!profile must never resolve another character")
+	end
 	local player, state = playerWith(emptyProfile)
 	registration.action.onSay(player, "!profile", "Outro Personagem")
 	assert_equal(1, state.profileCalls)
