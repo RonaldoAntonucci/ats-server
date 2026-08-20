@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 
+import json
+import os
 import re
+import subprocess
 import unittest
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCKERFILE = REPO_ROOT / "docker" / "Dockerfile"
+BASE_COMPOSE = REPO_ROOT / "docker" / "docker-compose.yml"
+LOCAL_COMPOSE = REPO_ROOT / "docker" / "docker-compose.local.yml"
 
 
 class CanonicalDockerfileContractTests(unittest.TestCase):
@@ -61,6 +66,48 @@ class CanonicalDockerfileContractTests(unittest.TestCase):
 	def test_compile_parallelism_is_bounded_and_configurable(self) -> None:
 		self.assertIn("ARG BUILD_JOBS=2", self.content)
 		self.assertIn('cmake --build --preset linux-release --parallel "${BUILD_JOBS}"', self.content)
+
+
+class LocalRuntimeComposeContractTests(unittest.TestCase):
+	def render_compose(self, *files: Path) -> dict:
+		environment = os.environ.copy()
+		environment["CANARY_LOCAL_PLATFORM"] = "linux/arm64"
+		command = ["docker", "compose"]
+		for compose_file in files:
+			command.extend(("-f", str(compose_file)))
+		command.extend(("config", "--format", "json"))
+		completed = subprocess.run(
+			command,
+			cwd=REPO_ROOT,
+			env=environment,
+			check=True,
+			capture_output=True,
+			text=True,
+		)
+		return json.loads(completed.stdout)
+
+	def test_runtime_overlay_declares_only_local_image_controls(self) -> None:
+		content = LOCAL_COMPOSE.read_text(encoding="utf-8")
+		self.assertIn("image: ats-server:local", content)
+		self.assertIn("pull_policy: never", content)
+		self.assertIn('platform: "${CANARY_LOCAL_PLATFORM}"', content)
+		self.assertNotIn("build:", content)
+
+	def test_merged_runtime_uses_local_image_without_server_build(self) -> None:
+		config = self.render_compose(BASE_COMPOSE, LOCAL_COMPOSE)
+		server = config["services"]["server"]
+		self.assertEqual("ats-server:local", server["image"])
+		self.assertEqual("never", server["pull_policy"])
+		self.assertEqual("linux/arm64", server["platform"])
+		self.assertNotIn("build", server)
+
+	def test_merged_runtime_preserves_myaac_build(self) -> None:
+		config = self.render_compose(BASE_COMPOSE, LOCAL_COMPOSE)
+		self.assertIn("build", config["services"]["myaac"])
+
+	def test_base_quickstart_keeps_published_image_default(self) -> None:
+		content = BASE_COMPOSE.read_text(encoding="utf-8")
+		self.assertIn('${CANARY_IMAGE:-ghcr.io/opentibiabr/canary:latest}', content)
 
 
 if __name__ == "__main__":
