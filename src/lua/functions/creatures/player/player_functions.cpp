@@ -187,7 +187,21 @@ void PlayerFunctions::init(lua_State* L) {
 	Lua::registerMethod(L, "Player", "addExperience", PlayerFunctions::luaPlayerAddExperience);
 	Lua::registerMethod(L, "Player", "removeExperience", PlayerFunctions::luaPlayerRemoveExperience);
 	Lua::registerMethod(L, "Player", "getLevel", PlayerFunctions::luaPlayerGetLevel);
-	Lua::registerMethod(L, "Player", "getDisciplineProfile", PlayerFunctions::luaPlayerGetDisciplineProfile);
+	Lua::registerMethod(L, "Player", "getDisciplines", PlayerFunctions::luaPlayerGetDisciplines);
+	Lua::registerMethod(L, "Player", "getAttributes", PlayerFunctions::luaPlayerGetAttributes);
+	Lua::registerMethod(L, "Player", "getStats", PlayerFunctions::luaPlayerGetStats);
+	Lua::registerMethod(L, "Player", "getAttributePot", PlayerFunctions::luaPlayerGetAttributePot);
+	Lua::registerMethod(L, "Player", "getAttributeTec", PlayerFunctions::luaPlayerGetAttributeTec);
+	Lua::registerMethod(L, "Player", "getAttributeVig", PlayerFunctions::luaPlayerGetAttributeVig);
+	Lua::registerMethod(L, "Player", "getAttributeSin", PlayerFunctions::luaPlayerGetAttributeSin);
+	Lua::registerMethod(L, "Player", "getAttributeEsp", PlayerFunctions::luaPlayerGetAttributeEsp);
+	Lua::registerMethod(L, "Player", "getStatPhysicalAttack", PlayerFunctions::luaPlayerGetStatPhysicalAttack);
+	Lua::registerMethod(L, "Player", "getStatMagicalAttack", PlayerFunctions::luaPlayerGetStatMagicalAttack);
+	Lua::registerMethod(L, "Player", "getStatPrecision", PlayerFunctions::luaPlayerGetStatPrecision);
+	Lua::registerMethod(L, "Player", "getStatPhysicalDefense", PlayerFunctions::luaPlayerGetStatPhysicalDefense);
+	Lua::registerMethod(L, "Player", "getStatMagicalDefense", PlayerFunctions::luaPlayerGetStatMagicalDefense);
+	Lua::registerMethod(L, "Player", "getStatMaximumHealth", PlayerFunctions::luaPlayerGetStatMaximumHealth);
+	Lua::registerMethod(L, "Player", "getStatMaximumMana", PlayerFunctions::luaPlayerGetStatMaximumMana);
 	Lua::registerMethod(L, "Player", "addDisciplineRank", PlayerFunctions::luaPlayerAddDisciplineRank);
 	Lua::registerMethod(L, "Player", "removeDisciplineRank", PlayerFunctions::luaPlayerRemoveDisciplineRank);
 
@@ -1478,38 +1492,204 @@ namespace {
 		Lua::pushString(L, disciplineResultCode(mutation.result));
 		return 4;
 	}
+
+	void pushAttributes(lua_State* L, const AttributeTotals &attributes) {
+		lua_createtable(L, 0, static_cast<int>(attributes.size()));
+		for (size_t index = 0; index < attributes.size(); ++index) {
+			Lua::setField(L, characterAttributeId(static_cast<CharacterAttribute>(index)).data(), std::min(attributes[index], maxPublicDerivedStat));
+		}
+	}
+
+	void pushStats(lua_State* L, const DerivedStatTotals &stats) {
+		lua_createtable(L, 0, static_cast<int>(stats.size()));
+		for (size_t index = 0; index < stats.size(); ++index) {
+			Lua::setField(L, derivedStatId(static_cast<DerivedStat>(index)).data(), stats[index]);
+		}
+	}
+
+	int pushAttribute(lua_State* L, CharacterAttribute attribute) {
+		const auto &player = Lua::getUserdataShared<Player>(L, 1, "Player");
+		if (!player) {
+			lua_pushnil(L);
+			return 1;
+		}
+		lua_pushnumber(L, std::min(player->characterStats().attribute(attribute), maxPublicDerivedStat));
+		return 1;
+	}
+
+	int pushStat(lua_State* L, DerivedStat stat) {
+		const auto &player = Lua::getUserdataShared<Player>(L, 1, "Player");
+		if (!player) {
+			lua_pushnil(L);
+			return 1;
+		}
+		lua_pushnumber(L, player->characterStats().stat(stat));
+		return 1;
+	}
 }
 
 /***
- * @function Player:getDisciplineProfile
- * @return { attributes: { for: integer, des: integer, vit: integer, int: integer, von: integer }, disciplines: { id: integer, name: string, rank: integer }[] }|nil
+ * @function Player:getDisciplines
+ * @return { id: integer, name: string, rank: integer, perLevel: { pot: integer, tec: integer, vig: integer, sin: integer, esp: integer } }[]|nil
  */
-int PlayerFunctions::luaPlayerGetDisciplineProfile(lua_State* L) {
+int PlayerFunctions::luaPlayerGetDisciplines(lua_State* L) {
 	const auto &player = Lua::getUserdataShared<Player>(L, 1, "Player");
 	if (!player) {
 		lua_pushnil(L);
 		return 1;
 	}
-	const auto profile = player->disciplines().profile(player->getLevel());
-	lua_createtable(L, 0, 2);
-	lua_createtable(L, 0, 5);
-	Lua::setField(L, "for", profile.attributes[0]);
-	Lua::setField(L, "des", profile.attributes[1]);
-	Lua::setField(L, "vit", profile.attributes[2]);
-	Lua::setField(L, "int", profile.attributes[3]);
-	Lua::setField(L, "von", profile.attributes[4]);
-	lua_setfield(L, -2, "attributes");
-	lua_createtable(L, static_cast<int>(profile.disciplines.size()), 0);
+	const auto snapshot = player->disciplines().snapshot(player->getLevel());
+	lua_createtable(L, static_cast<int>(snapshot.disciplines.size()), 0);
 	int index = 0;
-	for (const auto &discipline : profile.disciplines) {
-		lua_createtable(L, 0, 3);
+	for (const auto &discipline : snapshot.disciplines) {
+		lua_createtable(L, 0, 4);
 		Lua::setField(L, "id", discipline.id);
 		Lua::setField(L, "name", discipline.name);
 		Lua::setField(L, "rank", discipline.rank);
+		lua_createtable(L, 0, static_cast<int>(discipline.perLevel.size()));
+		for (size_t attributeIndex = 0; attributeIndex < discipline.perLevel.size(); ++attributeIndex) {
+			Lua::setField(L, characterAttributeId(static_cast<CharacterAttribute>(attributeIndex)).data(), discipline.perLevel[attributeIndex]);
+		}
+		lua_setfield(L, -2, "perLevel");
 		lua_rawseti(L, -2, ++index);
 	}
-	lua_setfield(L, -2, "disciplines");
 	return 1;
+}
+
+/***
+ * @function Player:getAttributes
+ * @return { pot: integer, tec: integer, vig: integer, sin: integer, esp: integer }|nil
+ */
+int PlayerFunctions::luaPlayerGetAttributes(lua_State* L) {
+	const auto &player = Lua::getUserdataShared<Player>(L, 1, "Player");
+	if (!player) {
+		lua_pushnil(L);
+		return 1;
+	}
+	pushAttributes(L, player->characterStats().attributes());
+	return 1;
+}
+
+/***
+ * @function Player:getStats
+ * @return { physicalAttack: integer, magicalAttack: integer, precision: integer, physicalDefense: integer, magicalDefense: integer, maximumHealth: integer, maximumMana: integer }|nil
+ */
+int PlayerFunctions::luaPlayerGetStats(lua_State* L) {
+	const auto &player = Lua::getUserdataShared<Player>(L, 1, "Player");
+	if (!player) {
+		lua_pushnil(L);
+		return 1;
+	}
+	pushStats(L, player->characterStats().stats());
+	return 1;
+}
+
+/***
+ * @function Player:getAttributePot
+ * @return integer|nil
+ */
+int PlayerFunctions::luaPlayerGetAttributePot(lua_State* L) {
+	// player:getAttributePot()
+	return pushAttribute(L, CharacterAttribute::Potency);
+}
+
+/***
+ * @function Player:getAttributeTec
+ * @return integer|nil
+ */
+int PlayerFunctions::luaPlayerGetAttributeTec(lua_State* L) {
+	// player:getAttributeTec()
+	return pushAttribute(L, CharacterAttribute::Technique);
+}
+
+/***
+ * @function Player:getAttributeVig
+ * @return integer|nil
+ */
+int PlayerFunctions::luaPlayerGetAttributeVig(lua_State* L) {
+	// player:getAttributeVig()
+	return pushAttribute(L, CharacterAttribute::Vigor);
+}
+
+/***
+ * @function Player:getAttributeSin
+ * @return integer|nil
+ */
+int PlayerFunctions::luaPlayerGetAttributeSin(lua_State* L) {
+	// player:getAttributeSin()
+	return pushAttribute(L, CharacterAttribute::Attunement);
+}
+
+/***
+ * @function Player:getAttributeEsp
+ * @return integer|nil
+ */
+int PlayerFunctions::luaPlayerGetAttributeEsp(lua_State* L) {
+	// player:getAttributeEsp()
+	return pushAttribute(L, CharacterAttribute::Spirit);
+}
+
+/***
+ * @function Player:getStatPhysicalAttack
+ * @return integer|nil
+ */
+int PlayerFunctions::luaPlayerGetStatPhysicalAttack(lua_State* L) {
+	// player:getStatPhysicalAttack()
+	return pushStat(L, DerivedStat::PhysicalAttack);
+}
+
+/***
+ * @function Player:getStatMagicalAttack
+ * @return integer|nil
+ */
+int PlayerFunctions::luaPlayerGetStatMagicalAttack(lua_State* L) {
+	// player:getStatMagicalAttack()
+	return pushStat(L, DerivedStat::MagicalAttack);
+}
+
+/***
+ * @function Player:getStatPrecision
+ * @return integer|nil
+ */
+int PlayerFunctions::luaPlayerGetStatPrecision(lua_State* L) {
+	// player:getStatPrecision()
+	return pushStat(L, DerivedStat::Precision);
+}
+
+/***
+ * @function Player:getStatPhysicalDefense
+ * @return integer|nil
+ */
+int PlayerFunctions::luaPlayerGetStatPhysicalDefense(lua_State* L) {
+	// player:getStatPhysicalDefense()
+	return pushStat(L, DerivedStat::PhysicalDefense);
+}
+
+/***
+ * @function Player:getStatMagicalDefense
+ * @return integer|nil
+ */
+int PlayerFunctions::luaPlayerGetStatMagicalDefense(lua_State* L) {
+	// player:getStatMagicalDefense()
+	return pushStat(L, DerivedStat::MagicalDefense);
+}
+
+/***
+ * @function Player:getStatMaximumHealth
+ * @return integer|nil
+ */
+int PlayerFunctions::luaPlayerGetStatMaximumHealth(lua_State* L) {
+	// player:getStatMaximumHealth()
+	return pushStat(L, DerivedStat::MaximumHealth);
+}
+
+/***
+ * @function Player:getStatMaximumMana
+ * @return integer|nil
+ */
+int PlayerFunctions::luaPlayerGetStatMaximumMana(lua_State* L) {
+	// player:getStatMaximumMana()
+	return pushStat(L, DerivedStat::MaximumMana);
 }
 
 /***

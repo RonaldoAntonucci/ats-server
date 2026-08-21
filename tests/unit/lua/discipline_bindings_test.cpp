@@ -52,7 +52,7 @@ namespace {
 		}
 
 		void loadCatalog(std::string_view xml = R"xml(<disciplines>
-			<discipline id="1" name="Armamento"><attribute id="for" perLevel="1"/><attribute id="des" perLevel="1"/><attribute id="vit" perLevel="1"/></discipline>
+			<discipline id="1" name="Armamento"><attribute id="pot" perLevel="1"/><attribute id="tec" perLevel="1"/><attribute id="vig" perLevel="1"/><attribute id="sin" perLevel="0"/><attribute id="esp" perLevel="0"/></discipline>
 		</disciplines>)xml") {
 			const auto file = std::filesystem::temp_directory_path() / "canary-discipline-lua-bindings.xml";
 			std::ofstream output(file);
@@ -71,20 +71,42 @@ namespace {
 			ASSERT_TRUE(lua_isfunction(L.get(), -1));
 		}
 
-		void pushPlayer() {
-			Lua::pushSharedUserdata<Player>(L.get(), player);
+		void pushPlayer(const std::shared_ptr<Player> &target) {
+			Lua::pushSharedUserdata<Player>(L.get(), target);
 		}
 
-		void callProfile() {
-			pushMethod("getDisciplineProfile");
-			pushPlayer();
+		void callTableMethod(const char* method, const std::shared_ptr<Player> &target) {
+			pushMethod(method);
+			pushPlayer(target);
 			ASSERT_EQ(lua_pcall(L.get(), 1, 1, 0), LUA_OK) << lua_tostring(L.get(), -1);
 			ASSERT_TRUE(lua_istable(L.get(), -1));
 		}
 
+		void callTableMethod(const char* method) {
+			callTableMethod(method, player);
+		}
+
+		uint64_t callScalarMethod(const char* method) {
+			pushMethod(method);
+			pushPlayer(player);
+			EXPECT_EQ(lua_pcall(L.get(), 1, 1, 0), LUA_OK) << lua_tostring(L.get(), -1);
+			EXPECT_TRUE(lua_isnumber(L.get(), -1));
+			const auto value = static_cast<uint64_t>(lua_tointeger(L.get(), -1));
+			lua_pop(L.get(), 1);
+			return value;
+		}
+
+		bool methodExists(const char* method) {
+			lua_getglobal(L.get(), "Player");
+			lua_getfield(L.get(), -1, method);
+			const auto exists = lua_isfunction(L.get(), -1);
+			lua_pop(L.get(), 2);
+			return exists;
+		}
+
 		MutationResult callMutation(const char* method, lua_Number id) {
 			pushMethod(method);
-			pushPlayer();
+			pushPlayer(player);
 			lua_pushnumber(L.get(), id);
 			EXPECT_EQ(lua_pcall(L.get(), 2, 4, 0), LUA_OK) << lua_tostring(L.get(), -1);
 
@@ -109,6 +131,18 @@ namespace {
 			return value;
 		}
 
+		std::set<std::string> stringKeys(int tableIndex) {
+			const auto absoluteIndex = tableIndex > 0 ? tableIndex : lua_gettop(L.get()) + tableIndex + 1;
+			std::set<std::string> keys;
+			lua_pushnil(L.get());
+			while (lua_next(L.get(), absoluteIndex) != 0) {
+				EXPECT_TRUE(lua_isstring(L.get(), -2));
+				keys.insert(Lua::getString(L.get(), -2));
+				lua_pop(L.get(), 1);
+			}
+			return keys;
+		}
+
 		std::unique_ptr<lua_State, decltype(&lua_close)> L { nullptr, &lua_close };
 		std::shared_ptr<Player> player;
 
@@ -129,52 +163,196 @@ TEST(TalkActionDisciplinePermissionTest, AllowsOnlyGamemasterAndHigherAccountTyp
 	EXPECT_TRUE(action.canExecute(ACCOUNT_TYPE_GOD));
 }
 
-TEST_F(DisciplineLuaBindingsTest, EmptyProfileReturnsEveryAttributeAsZero) {
-	callProfile();
-	lua_getfield(L.get(), -1, "attributes");
-	ASSERT_TRUE(lua_istable(L.get(), -1));
-	EXPECT_EQ(0u, numberField(-1, "for"));
-	EXPECT_EQ(0u, numberField(-1, "des"));
-	EXPECT_EQ(0u, numberField(-1, "vit"));
-	EXPECT_EQ(0u, numberField(-1, "int"));
-	EXPECT_EQ(0u, numberField(-1, "von"));
-	lua_pop(L.get(), 1);
-	lua_getfield(L.get(), -1, "disciplines");
-	ASSERT_TRUE(lua_istable(L.get(), -1));
-	EXPECT_EQ(0u, lua_objlen(L.get(), -1));
+TEST_F(DisciplineLuaBindingsTest, RegistersGranularReadsWithoutLegacyProfile) {
+	for (const auto method : {
+			 "getDisciplines",
+			 "getAttributes",
+			 "getStats",
+			 "getAttributePot",
+			 "getAttributeTec",
+			 "getAttributeVig",
+			 "getAttributeSin",
+			 "getAttributeEsp",
+			 "getStatPhysicalAttack",
+			 "getStatMagicalAttack",
+			 "getStatPrecision",
+			 "getStatPhysicalDefense",
+			 "getStatMagicalDefense",
+			 "getStatMaximumHealth",
+			 "getStatMaximumMana",
+		 }) {
+		EXPECT_TRUE(methodExists(method)) << method;
+	}
+	EXPECT_FALSE(methodExists("getDisciplineProfile"));
 }
 
-TEST_F(DisciplineLuaBindingsTest, ProfileReturnsCalculatedAttributesAndOrderedCurrentNames) {
+TEST_F(DisciplineLuaBindingsTest, AttributeTableHasExactlyTheFiveAtsKeys) {
+	callTableMethod("getAttributes");
+	EXPECT_EQ((std::set<std::string> { "pot", "tec", "vig", "sin", "esp" }), stringKeys(-1));
+}
+
+TEST_F(DisciplineLuaBindingsTest, StatsTableHasExactlyTheSevenStableKeys) {
+	callTableMethod("getStats");
+	EXPECT_EQ((std::set<std::string> { "physicalAttack", "magicalAttack", "precision", "physicalDefense", "magicalDefense", "maximumHealth", "maximumMana" }), stringKeys(-1));
+}
+
+TEST_F(DisciplineLuaBindingsTest, EmptyReadsReturnEveryAttributeAndStatAsZero) {
+	callTableMethod("getAttributes");
+	EXPECT_EQ(0u, numberField(-1, "pot"));
+	EXPECT_EQ(0u, numberField(-1, "tec"));
+	EXPECT_EQ(0u, numberField(-1, "vig"));
+	EXPECT_EQ(0u, numberField(-1, "sin"));
+	EXPECT_EQ(0u, numberField(-1, "esp"));
+	lua_pop(L.get(), 1);
+	callTableMethod("getStats");
+	EXPECT_EQ(0u, numberField(-1, "physicalAttack"));
+	EXPECT_EQ(0u, numberField(-1, "magicalAttack"));
+	EXPECT_EQ(0u, numberField(-1, "precision"));
+	EXPECT_EQ(0u, numberField(-1, "physicalDefense"));
+	EXPECT_EQ(0u, numberField(-1, "magicalDefense"));
+	EXPECT_EQ(0u, numberField(-1, "maximumHealth"));
+	EXPECT_EQ(0u, numberField(-1, "maximumMana"));
+	lua_pop(L.get(), 1);
+	callTableMethod("getDisciplines");
+	EXPECT_EQ(0u, lua_objlen(L.get(), -1));
+
+	for (const auto* method : {
+			 "getAttributePot",
+			 "getAttributeTec",
+			 "getAttributeVig",
+			 "getAttributeSin",
+			 "getAttributeEsp",
+			 "getStatPhysicalAttack",
+			 "getStatMagicalAttack",
+			 "getStatPrecision",
+			 "getStatPhysicalDefense",
+			 "getStatMagicalDefense",
+			 "getStatMaximumHealth",
+			 "getStatMaximumMana",
+		 }) {
+		EXPECT_EQ(0u, callScalarMethod(method)) << method;
+	}
+}
+
+TEST_F(DisciplineLuaBindingsTest, AggregateReadsReturnCalculatedValuesAndOrderedCurrentDisciplines) {
 	loadCatalog(R"xml(<disciplines>
-		<discipline id="2" name="Defesa"><attribute id="von" perLevel="2"/></discipline>
-		<discipline id="1" name="Armas"><attribute id="for" perLevel="1"/></discipline>
+		<discipline id="2" name="Defesa"><attribute id="esp" perLevel="2"/></discipline>
+		<discipline id="1" name="Armas"><attribute id="pot" perLevel="1"/></discipline>
 	</disciplines>)xml");
 	player->setLevel(3);
 	ASSERT_TRUE(player->disciplines().addRank(2).success());
 	ASSERT_TRUE(player->disciplines().addRank(1).success());
 	ASSERT_TRUE(player->disciplines().addRank(1).success());
 
-	callProfile();
-	lua_getfield(L.get(), -1, "attributes");
-	ASSERT_TRUE(lua_istable(L.get(), -1));
-	EXPECT_EQ(6u, numberField(-1, "for"));
-	EXPECT_EQ(0u, numberField(-1, "des"));
-	EXPECT_EQ(0u, numberField(-1, "vit"));
-	EXPECT_EQ(0u, numberField(-1, "int"));
-	EXPECT_EQ(6u, numberField(-1, "von"));
+	callTableMethod("getAttributes");
+	EXPECT_EQ(6u, numberField(-1, "pot"));
+	EXPECT_EQ(0u, numberField(-1, "tec"));
+	EXPECT_EQ(0u, numberField(-1, "vig"));
+	EXPECT_EQ(0u, numberField(-1, "sin"));
+	EXPECT_EQ(6u, numberField(-1, "esp"));
 	lua_pop(L.get(), 1);
-
-	lua_getfield(L.get(), -1, "disciplines");
+	callTableMethod("getStats");
+	EXPECT_EQ(6u, numberField(-1, "physicalAttack"));
+	EXPECT_EQ(0u, numberField(-1, "magicalAttack"));
+	EXPECT_EQ(0u, numberField(-1, "precision"));
+	EXPECT_EQ(2u, numberField(-1, "physicalDefense"));
+	EXPECT_EQ(5u, numberField(-1, "magicalDefense"));
+	EXPECT_EQ(0u, numberField(-1, "maximumHealth"));
+	EXPECT_EQ(30u, numberField(-1, "maximumMana"));
+	lua_pop(L.get(), 1);
+	callTableMethod("getDisciplines");
 	ASSERT_EQ(2u, lua_objlen(L.get(), -1));
 	lua_rawgeti(L.get(), -1, 1);
 	EXPECT_EQ(1u, numberField(-1, "id"));
 	EXPECT_EQ(2u, numberField(-1, "rank"));
 	lua_getfield(L.get(), -1, "name");
 	EXPECT_EQ("Armas", Lua::getString(L.get(), -1));
+	lua_pop(L.get(), 1);
+	lua_getfield(L.get(), -1, "perLevel");
+	EXPECT_EQ((std::set<std::string> { "pot", "tec", "vig", "sin", "esp" }), stringKeys(-1));
+	EXPECT_EQ(1u, numberField(-1, "pot"));
+	EXPECT_EQ(0u, numberField(-1, "tec"));
+	EXPECT_EQ(0u, numberField(-1, "vig"));
+	EXPECT_EQ(0u, numberField(-1, "sin"));
+	EXPECT_EQ(0u, numberField(-1, "esp"));
 	lua_pop(L.get(), 2);
 	lua_rawgeti(L.get(), -1, 2);
 	EXPECT_EQ(2u, numberField(-1, "id"));
 	EXPECT_EQ(1u, numberField(-1, "rank"));
+}
+
+TEST_F(DisciplineLuaBindingsTest, PublicMaximumRemainsExactForAttributesAndStats) {
+	loadCatalog(R"xml(<disciplines><discipline id="1" name="Overflow"><attribute id="pot" perLevel="4294967295"/></discipline></disciplines>)xml");
+	player->setLevel(std::numeric_limits<uint32_t>::max());
+	player->kv()->scoped("disciplines")->set("ranks", ValueWrapper {
+														  { "1", ValueWrapper(ValueVariant { std::numeric_limits<IntType>::max() }) },
+													  });
+
+	callTableMethod("getAttributes");
+	EXPECT_EQ(maxPublicDerivedStat, numberField(-1, "pot"));
+	lua_pop(L.get(), 1);
+	callTableMethod("getStats");
+	EXPECT_EQ(maxPublicDerivedStat, numberField(-1, "physicalAttack"));
+}
+
+TEST_F(DisciplineLuaBindingsTest, AggregateReadsAreReadOnlyAndScopedToTheReceiver) {
+	player->setGUID(1);
+	ASSERT_TRUE(player->disciplines().addRank(1).success());
+	const auto ranksBefore = player->disciplines().ranks();
+	const auto writesBefore = dynamic_cast<KVMemory &>(injector.create<KVStore &>()).writes();
+	const auto emptyPlayer = std::make_shared<Player>();
+	emptyPlayer->setGUID(2);
+
+	callTableMethod("getAttributes", emptyPlayer);
+	EXPECT_EQ(0u, numberField(-1, "pot"));
+	lua_pop(L.get(), 1);
+	callTableMethod("getAttributes", player);
+	EXPECT_EQ(1u, numberField(-1, "pot"));
+
+	EXPECT_EQ(ranksBefore, player->disciplines().ranks());
+	EXPECT_EQ(writesBefore, dynamic_cast<KVMemory &>(injector.create<KVStore &>()).writes());
+}
+
+TEST_F(DisciplineLuaBindingsTest, ScalarAttributeGettersMatchAggregateFields) {
+	loadCatalog(R"xml(<disciplines><discipline id="1" name="All"><attribute id="pot" perLevel="1"/><attribute id="tec" perLevel="2"/><attribute id="vig" perLevel="3"/><attribute id="sin" perLevel="4"/><attribute id="esp" perLevel="5"/></discipline></disciplines>)xml");
+	ASSERT_TRUE(player->disciplines().addRank(1).success());
+
+	callTableMethod("getAttributes");
+	for (const auto &[method, field] : {
+			 std::pair { "getAttributePot", "pot" },
+			 std::pair { "getAttributeTec", "tec" },
+			 std::pair { "getAttributeVig", "vig" },
+			 std::pair { "getAttributeSin", "sin" },
+			 std::pair { "getAttributeEsp", "esp" },
+		 }) {
+		EXPECT_EQ(numberField(-1, field), callScalarMethod(method)) << method;
+	}
+	lua_pop(L.get(), 1);
+}
+
+TEST_F(DisciplineLuaBindingsTest, ScalarStatGettersMatchAggregateFieldsAndNotRuntimeResources) {
+	loadCatalog(R"xml(<disciplines><discipline id="1" name="All"><attribute id="pot" perLevel="1"/><attribute id="tec" perLevel="1"/><attribute id="vig" perLevel="1"/><attribute id="sin" perLevel="1"/><attribute id="esp" perLevel="1"/></discipline></disciplines>)xml");
+	ASSERT_TRUE(player->disciplines().addRank(1).success());
+	const auto runtimeMaximumHealth = player->getMaxHealth();
+	const auto runtimeMaximumMana = player->getMaxMana();
+
+	callTableMethod("getStats");
+	for (const auto &[method, field] : {
+			 std::pair { "getStatPhysicalAttack", "physicalAttack" },
+			 std::pair { "getStatMagicalAttack", "magicalAttack" },
+			 std::pair { "getStatPrecision", "precision" },
+			 std::pair { "getStatPhysicalDefense", "physicalDefense" },
+			 std::pair { "getStatMagicalDefense", "magicalDefense" },
+			 std::pair { "getStatMaximumHealth", "maximumHealth" },
+			 std::pair { "getStatMaximumMana", "maximumMana" },
+		 }) {
+		EXPECT_EQ(numberField(-1, field), callScalarMethod(method)) << method;
+	}
+	EXPECT_EQ(5u, callScalarMethod("getStatMaximumHealth"));
+	EXPECT_EQ(5u, callScalarMethod("getStatMaximumMana"));
+	EXPECT_NE(static_cast<uint64_t>(runtimeMaximumHealth), callScalarMethod("getStatMaximumHealth"));
+	EXPECT_NE(static_cast<uint64_t>(runtimeMaximumMana), callScalarMethod("getStatMaximumMana"));
+	lua_pop(L.get(), 1);
 }
 
 TEST_F(DisciplineLuaBindingsTest, AddRankReturnsStableSuccessFields) {

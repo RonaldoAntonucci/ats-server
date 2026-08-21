@@ -14,10 +14,6 @@
 #include "utils/tools.hpp"
 
 namespace {
-	constexpr std::array<std::string_view, static_cast<size_t>(CharacterAttribute::Last)> attributeIds = {
-		"for", "des", "vit", "int", "von"
-	};
-
 	[[nodiscard]] std::string trimCopy(std::string value) {
 		const auto first = value.find_first_not_of(" \t\r\n");
 		if (first == std::string::npos) {
@@ -60,12 +56,13 @@ namespace {
 	}
 
 	[[nodiscard]] std::optional<CharacterAttribute> toCharacterAttribute(std::string_view id) {
-		const auto it = std::ranges::find(attributeIds, id);
-		if (it == attributeIds.end()) {
-			return std::nullopt;
+		for (size_t index = 0; index < static_cast<size_t>(CharacterAttribute::Last); ++index) {
+			const auto attribute = static_cast<CharacterAttribute>(index);
+			if (characterAttributeId(attribute) == id) {
+				return attribute;
+			}
 		}
-
-		return static_cast<CharacterAttribute>(std::distance(attributeIds.begin(), it));
+		return std::nullopt;
 	}
 } // namespace
 
@@ -139,7 +136,8 @@ bool DisciplineCatalog::loadFromXml(const std::filesystem::path &path) {
 			const auto attributeId = attributeNode.attribute("id");
 			const auto attribute = attributeId ? toCharacterAttribute(attributeId.value()) : std::nullopt;
 			if (!attribute) {
-				logCatalogError(path, std::to_string(id), "attribute.id", "unknown attribute");
+				const auto invalidId = attributeId ? std::string(attributeId.value()) : std::string("<missing>");
+				logCatalogError(path, std::to_string(id), "attribute.id", "unknown attribute id " + invalidId);
 				return false;
 			}
 

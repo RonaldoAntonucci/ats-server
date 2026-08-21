@@ -9,17 +9,7 @@
 
 #pragma once
 
-enum class CharacterAttribute : uint8_t {
-	Strength,
-	Dexterity,
-	Vitality,
-	Intelligence,
-	Willpower,
-	Last,
-};
-
-using AttributeContributions = std::array<uint32_t, static_cast<size_t>(CharacterAttribute::Last)>;
-using AttributeTotals = std::array<uint64_t, static_cast<size_t>(CharacterAttribute::Last)>;
+#include "creatures/players/stats/character_stats.hpp"
 
 struct Discipline {
 	uint16_t id = 0;

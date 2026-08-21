@@ -14,6 +14,10 @@
 #include "server/network/webhook/webhook.hpp"
 #include "utils/tools.hpp"
 
+#ifndef USE_PRECOMPILED_HEADERS
+	#include <cmath>
+#endif
+
 #if LUA_VERSION_NUM >= 502
 	#undef lua_strlen
 	#define lua_strlen lua_rawlen
@@ -33,6 +37,12 @@ bool ConfigManager::load() {
 
 	if (luaL_dofile(L, configFileLua.c_str())) {
 		g_logger().error("[ConfigManager::load] - {}", lua_tostring(L, -1));
+		lua_close(L);
+		return false;
+	}
+
+	const auto derivedStatCandidate = loadDerivedStatMultipliers(L);
+	if (!derivedStatCandidate) {
 		lua_close(L);
 		return false;
 	}
@@ -415,6 +425,7 @@ bool ConfigManager::load() {
 	loadStringConfig(L, LUA_API_DOCS_OUTPUT_DIRECTORY, "luaApiDocsOutputDirectory", "docs/lua-api");
 
 	loadLuaOTCFeatures(L);
+	std::atomic_store_explicit(&derivedStatMultipliers, std::make_shared<const DerivedStatMultipliers>(*derivedStatCandidate), std::memory_order_release);
 
 	std::vector<std::function<void()>> callbacks;
 	{
@@ -435,10 +446,69 @@ bool ConfigManager::reload() {
 	m_configBoolean.clear();
 	m_configFloat.clear();
 	const bool result = load();
+	if (!result) {
+		return false;
+	}
 	if (transformToSHA1(getString(SERVER_MOTD)) != g_game().getMotdHash()) {
 		g_game().incrementMotdNum();
 	}
 	return result;
+}
+
+std::shared_ptr<const DerivedStatMultipliers> ConfigManager::getDerivedStatMultipliers() const {
+	return std::atomic_load_explicit(&derivedStatMultipliers, std::memory_order_acquire);
+}
+
+std::optional<DerivedStatMultipliers> ConfigManager::loadDerivedStatMultipliers(lua_State* L) const {
+	struct Definition {
+		const char* key;
+		double defaultValue;
+		double DerivedStatMultipliers::*member;
+	};
+
+	static constexpr std::array definitions {
+		Definition { "characterPotToPhysicalAttackMultiplier", 1.0, &DerivedStatMultipliers::potToPhysicalAttack },
+		Definition { "characterPotToPhysicalDefenseMultiplier", 0.3, &DerivedStatMultipliers::potToPhysicalDefense },
+		Definition { "characterTecToPrecisionMultiplier", 1.0, &DerivedStatMultipliers::tecToPrecision },
+		Definition { "characterVigToMaximumHealthMultiplier", 5.0, &DerivedStatMultipliers::vigToMaximumHealth },
+		Definition { "characterVigToPhysicalDefenseMultiplier", 0.7, &DerivedStatMultipliers::vigToPhysicalDefense },
+		Definition { "characterSinToMagicalAttackMultiplier", 1.0, &DerivedStatMultipliers::sinToMagicalAttack },
+		Definition { "characterSinToMagicalDefenseMultiplier", 0.3, &DerivedStatMultipliers::sinToMagicalDefense },
+		Definition { "characterEspToMaximumManaMultiplier", 5.0, &DerivedStatMultipliers::espToMaximumMana },
+		Definition { "characterEspToMagicalDefenseMultiplier", 0.7, &DerivedStatMultipliers::espToMagicalDefense },
+	};
+
+	DerivedStatMultipliers candidate;
+	for (const auto &definition : definitions) {
+		lua_getglobal(L, definition.key);
+		if (lua_isnil(L, -1)) {
+			candidate.*(definition.member) = definition.defaultValue;
+			g_logger().warn("[ConfigManager::loadDerivedStatMultipliers] key={} reason=missing; using default={}", definition.key, definition.defaultValue);
+			lua_pop(L, 1);
+			continue;
+		}
+
+		if (lua_type(L, -1) != LUA_TNUMBER) {
+			g_logger().error("[ConfigManager::loadDerivedStatMultipliers] key={} reason=wrong type", definition.key);
+			lua_pop(L, 1);
+			return std::nullopt;
+		}
+
+		const auto value = static_cast<double>(lua_tonumber(L, -1));
+		lua_pop(L, 1);
+		if (!std::isfinite(value)) {
+			g_logger().error("[ConfigManager::loadDerivedStatMultipliers] key={} reason=non-finite value", definition.key);
+			return std::nullopt;
+		}
+		if (value < 0.0) {
+			g_logger().error("[ConfigManager::loadDerivedStatMultipliers] key={} reason=negative value", definition.key);
+			return std::nullopt;
+		}
+
+		candidate.*(definition.member) = value;
+	}
+
+	return candidate;
 }
 
 void ConfigManager::deferUntilLoaded(std::function<void()> callback) {

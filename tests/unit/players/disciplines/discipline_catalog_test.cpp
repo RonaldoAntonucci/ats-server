@@ -56,9 +56,11 @@ namespace {
 	constexpr std::string_view validCatalog = R"xml(
 <disciplines>
 	<discipline id="1" name="Armamento">
-		<attribute id="for" perLevel="1" />
-		<attribute id="des" perLevel="1" />
-		<attribute id="vit" perLevel="1" />
+		<attribute id="pot" perLevel="1" />
+		<attribute id="tec" perLevel="1" />
+		<attribute id="vig" perLevel="1" />
+		<attribute id="sin" perLevel="0" />
+		<attribute id="esp" perLevel="0" />
 	</discipline>
 </disciplines>
 )xml";
@@ -71,19 +73,21 @@ TEST_F(DisciplineCatalogTest, LoadsArmamentoWithConfiguredContributions) {
 	const auto* armamento = catalog.get(1);
 	ASSERT_NE(nullptr, armamento);
 	EXPECT_EQ("Armamento", armamento->name);
-	EXPECT_EQ(1u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Strength)]);
-	EXPECT_EQ(1u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Dexterity)]);
-	EXPECT_EQ(1u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Vitality)]);
+	EXPECT_EQ(1u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Potency)]);
+	EXPECT_EQ(1u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Technique)]);
+	EXPECT_EQ(1u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Vigor)]);
 }
 
 TEST_F(DisciplineCatalogTest, DefaultsOmittedAttributesToZero) {
-	write(validCatalog);
+	write(R"xml(<disciplines><discipline id="1" name="Armamento"><attribute id="pot" perLevel="1"/></discipline></disciplines>)xml");
 
 	ASSERT_TRUE(catalog.loadFromXml(file));
 	const auto* armamento = catalog.get(1);
 	ASSERT_NE(nullptr, armamento);
-	EXPECT_EQ(0u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Intelligence)]);
-	EXPECT_EQ(0u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Willpower)]);
+	EXPECT_EQ(0u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Technique)]);
+	EXPECT_EQ(0u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Vigor)]);
+	EXPECT_EQ(0u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Attunement)]);
+	EXPECT_EQ(0u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Spirit)]);
 }
 
 TEST_F(DisciplineCatalogTest, PreservesAscendingNumericIdOrder) {
@@ -175,39 +179,64 @@ TEST_F(DisciplineCatalogTest, RejectsUnknownAttributeId) {
 	write("<disciplines><discipline id=\"1\" name=\"Armamento\"><attribute id=\"luck\" perLevel=\"1\"/></discipline></disciplines>");
 
 	EXPECT_FALSE(catalog.loadFromXml(file));
+	const auto &logger = dynamic_cast<InMemoryLogger &>(DI::get<Logger>());
+	ASSERT_EQ(1u, logger.logCount());
+	EXPECT_NE(std::string::npos, logger.getLogEntry(0).second.find("unknown attribute id luck"));
+}
+
+TEST_F(DisciplineCatalogTest, AcceptsEveryAtsAttributeId) {
+	write(R"xml(<disciplines><discipline id="1" name="All"><attribute id="pot" perLevel="1"/><attribute id="tec" perLevel="2"/><attribute id="vig" perLevel="3"/><attribute id="sin" perLevel="4"/><attribute id="esp" perLevel="5"/></discipline></disciplines>)xml");
+
+	ASSERT_TRUE(catalog.loadFromXml(file));
+	const auto* discipline = catalog.get(1);
+	ASSERT_NE(nullptr, discipline);
+	EXPECT_EQ((AttributeContributions { 1, 2, 3, 4, 5 }), discipline->perLevel);
+}
+
+TEST_F(DisciplineCatalogTest, RejectsEachLegacyAttributeIdAndIdentifiesIt) {
+	for (const auto legacyId : { "for", "des", "vit", "int", "von" }) {
+		SCOPED_TRACE(legacyId);
+		dynamic_cast<InMemoryLogger &>(DI::get<Logger>()).reset();
+		write("<disciplines><discipline id=\"1\" name=\"Armamento\"><attribute id=\"" + std::string(legacyId) + "\" perLevel=\"1\"/></discipline></disciplines>");
+
+		EXPECT_FALSE(catalog.loadFromXml(file));
+		const auto &logger = dynamic_cast<InMemoryLogger &>(DI::get<Logger>());
+		ASSERT_EQ(1u, logger.logCount());
+		EXPECT_NE(std::string::npos, logger.getLogEntry(0).second.find("unknown attribute id " + std::string(legacyId)));
+	}
 }
 
 TEST_F(DisciplineCatalogTest, RejectsDuplicateAttribute) {
-	write("<disciplines><discipline id=\"1\" name=\"Armamento\"><attribute id=\"for\" perLevel=\"1\"/><attribute id=\"for\" perLevel=\"2\"/></discipline></disciplines>");
+	write("<disciplines><discipline id=\"1\" name=\"Armamento\"><attribute id=\"pot\" perLevel=\"1\"/><attribute id=\"pot\" perLevel=\"2\"/></discipline></disciplines>");
 
 	EXPECT_FALSE(catalog.loadFromXml(file));
 }
 
 TEST_F(DisciplineCatalogTest, RejectsDuplicateAttributeWhenTheFirstContributionIsZero) {
-	write("<disciplines><discipline id=\"1\" name=\"Armamento\"><attribute id=\"for\" perLevel=\"0\"/><attribute id=\"for\" perLevel=\"1\"/></discipline></disciplines>");
+	write("<disciplines><discipline id=\"1\" name=\"Armamento\"><attribute id=\"pot\" perLevel=\"0\"/><attribute id=\"pot\" perLevel=\"1\"/></discipline></disciplines>");
 
 	EXPECT_FALSE(catalog.loadFromXml(file));
 }
 
 TEST_F(DisciplineCatalogTest, RejectsUnknownAttributeProperty) {
-	write("<disciplines><discipline id=\"1\" name=\"Armamento\"><attribute id=\"for\" perLevel=\"1\" extra=\"x\"/></discipline></disciplines>");
+	write("<disciplines><discipline id=\"1\" name=\"Armamento\"><attribute id=\"pot\" perLevel=\"1\" extra=\"x\"/></discipline></disciplines>");
 
 	EXPECT_FALSE(catalog.loadFromXml(file));
 }
 
 TEST_F(DisciplineCatalogTest, RejectsInvalidAttributeContribution) {
-	write("<disciplines><discipline id=\"1\" name=\"Armamento\"><attribute id=\"for\" perLevel=\"-1\"/></discipline></disciplines>");
+	write("<disciplines><discipline id=\"1\" name=\"Armamento\"><attribute id=\"pot\" perLevel=\"-1\"/></discipline></disciplines>");
 	EXPECT_FALSE(catalog.loadFromXml(file));
 
-	write("<disciplines><discipline id=\"1\" name=\"Armamento\"><attribute id=\"for\" perLevel=\"invalid\"/></discipline></disciplines>");
+	write("<disciplines><discipline id=\"1\" name=\"Armamento\"><attribute id=\"pot\" perLevel=\"invalid\"/></discipline></disciplines>");
 	EXPECT_FALSE(catalog.loadFromXml(file));
 
-	write("<disciplines><discipline id=\"1\" name=\"Armamento\"><attribute id=\"for\" perLevel=\"4294967296\"/></discipline></disciplines>");
+	write("<disciplines><discipline id=\"1\" name=\"Armamento\"><attribute id=\"pot\" perLevel=\"4294967296\"/></discipline></disciplines>");
 	EXPECT_FALSE(catalog.loadFromXml(file));
 }
 
 TEST_F(DisciplineCatalogTest, RejectsMissingAttributeContribution) {
-	write("<disciplines><discipline id=\"1\" name=\"Armamento\"><attribute id=\"for\"/></discipline></disciplines>");
+	write("<disciplines><discipline id=\"1\" name=\"Armamento\"><attribute id=\"pot\"/></discipline></disciplines>");
 
 	EXPECT_FALSE(catalog.loadFromXml(file));
 }
@@ -216,7 +245,7 @@ TEST_F(DisciplineCatalogTest, PublishesOnlyAfterFullValidation) {
 	write(validCatalog);
 	ASSERT_TRUE(catalog.loadFromXml(file));
 
-	write("<disciplines><discipline id=\"2\" name=\"Valid\"/><discipline id=\"3\" name=\"Broken\"><attribute id=\"for\" perLevel=\"invalid\"/></discipline></disciplines>");
+	write("<disciplines><discipline id=\"2\" name=\"Valid\"/><discipline id=\"3\" name=\"Broken\"><attribute id=\"pot\" perLevel=\"invalid\"/></discipline></disciplines>");
 	EXPECT_FALSE(catalog.loadFromXml(file));
 
 	ASSERT_NE(nullptr, catalog.get(1));

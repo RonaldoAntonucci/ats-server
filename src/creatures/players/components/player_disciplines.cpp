@@ -22,13 +22,6 @@
 
 namespace {
 	constexpr std::string_view ranksKey = "ranks";
-	constexpr std::array<std::string_view, static_cast<size_t>(CharacterAttribute::Last)> attributeNames {
-		"for",
-		"des",
-		"vit",
-		"int",
-		"von",
-	};
 
 	[[nodiscard]] bool parsePositiveUint16(std::string_view value, uint16_t &parsed) {
 		const auto [ptr, error] = std::from_chars(value.data(), value.data() + value.size(), parsed);
@@ -49,30 +42,30 @@ const std::map<uint16_t, uint32_t> &PlayerDisciplines::ranks() const {
 	return storedRanks;
 }
 
-DisciplineProfile PlayerDisciplines::profile(uint32_t level) const {
+DisciplineContributionSnapshot PlayerDisciplines::snapshot(uint32_t level) const {
 	std::scoped_lock lock(mutex);
 	loadLocked();
 
-	DisciplineProfile profile;
+	DisciplineContributionSnapshot snapshot;
 	for (const auto &[id, rank] : storedRanks) {
 		const auto* discipline = g_disciplines().get(id);
 		if (!discipline) {
 			continue;
 		}
 
-		profile.disciplines.emplace_back(id, discipline->name, rank);
-		for (size_t index = 0; index < profile.attributes.size(); ++index) {
+		snapshot.disciplines.emplace_back(id, discipline->name, rank, discipline->perLevel);
+		for (size_t index = 0; index < snapshot.attributes.size(); ++index) {
 			const auto levelAndRank = static_cast<uint64_t>(level) * rank;
 			const auto perLevel = discipline->perLevel[index];
-			if (wouldOverflow(levelAndRank, perLevel) || wouldOverflow(profile.attributes[index], levelAndRank * perLevel)) {
-				profile.attributes[index] = std::numeric_limits<uint64_t>::max();
-				g_logger().error("[PlayerDisciplines] player={} attribute={} reason=derived attribute overflow", player.getName(), attributeNames[index]);
+			if (wouldOverflow(levelAndRank, perLevel) || wouldOverflow(snapshot.attributes[index], levelAndRank * perLevel)) {
+				snapshot.attributes[index] = std::numeric_limits<uint64_t>::max();
+				g_logger().error("[PlayerDisciplines] player={} attribute={} reason=derived attribute overflow", player.getName(), characterAttributeId(static_cast<CharacterAttribute>(index)));
 				continue;
 			}
-			profile.attributes[index] += levelAndRank * perLevel;
+			snapshot.attributes[index] += levelAndRank * perLevel;
 		}
 	}
-	return profile;
+	return snapshot;
 }
 
 DisciplineMutation PlayerDisciplines::addRank(uint16_t id) {

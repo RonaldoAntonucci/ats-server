@@ -9,21 +9,19 @@
 
 #pragma once
 
-void reportConfigReload(bool succeeded);
+#include "creatures/players/stats/character_stats.hpp"
 
-class Signals {
-	asio::signal_set set;
+class Player;
 
+class PlayerCharacterStats {
 public:
-	explicit Signals(asio::io_service &service);
+	explicit PlayerCharacterStats(Player &player);
+
+	[[nodiscard]] AttributeTotals attributes() const;
+	[[nodiscard]] DerivedStatTotals stats() const;
+	[[nodiscard]] uint64_t attribute(CharacterAttribute attribute) const;
+	[[nodiscard]] uint64_t stat(DerivedStat stat) const;
 
 private:
-	void asyncWait();
-	static void dispatchSignalHandler(int signal);
-
-	static void sigbreakHandler();
-	static void sigintHandler();
-	static void sighupHandler();
-	static void sigtermHandler();
-	static void sigusr1Handler();
+	Player &player;
 };

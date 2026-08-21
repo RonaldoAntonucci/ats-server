@@ -92,7 +92,21 @@ class PlayerFunctions {
 	static int luaPlayerAddExperience(lua_State* L);
 	static int luaPlayerRemoveExperience(lua_State* L);
 	static int luaPlayerGetLevel(lua_State* L);
-	static int luaPlayerGetDisciplineProfile(lua_State* L);
+	static int luaPlayerGetDisciplines(lua_State* L);
+	static int luaPlayerGetAttributes(lua_State* L);
+	static int luaPlayerGetStats(lua_State* L);
+	static int luaPlayerGetAttributePot(lua_State* L);
+	static int luaPlayerGetAttributeTec(lua_State* L);
+	static int luaPlayerGetAttributeVig(lua_State* L);
+	static int luaPlayerGetAttributeSin(lua_State* L);
+	static int luaPlayerGetAttributeEsp(lua_State* L);
+	static int luaPlayerGetStatPhysicalAttack(lua_State* L);
+	static int luaPlayerGetStatMagicalAttack(lua_State* L);
+	static int luaPlayerGetStatPrecision(lua_State* L);
+	static int luaPlayerGetStatPhysicalDefense(lua_State* L);
+	static int luaPlayerGetStatMagicalDefense(lua_State* L);
+	static int luaPlayerGetStatMaximumHealth(lua_State* L);
+	static int luaPlayerGetStatMaximumMana(lua_State* L);
 	static int luaPlayerAddDisciplineRank(lua_State* L);
 	static int luaPlayerRemoveDisciplineRank(lua_State* L);
 
