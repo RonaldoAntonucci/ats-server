@@ -285,8 +285,8 @@ TEST_F(DisciplineLuaBindingsTest, PublicMaximumRemainsExactForAttributesAndStats
 	loadCatalog(R"xml(<disciplines><discipline id="1" name="Overflow"><attribute id="pot" perLevel="4294967295"/></discipline></disciplines>)xml");
 	player->setLevel(std::numeric_limits<uint32_t>::max());
 	player->kv()->scoped("disciplines")->set("ranks", ValueWrapper {
-												  { "1", ValueWrapper(ValueVariant { std::numeric_limits<IntType>::max() }) },
-											  });
+														  { "1", ValueWrapper(ValueVariant { std::numeric_limits<IntType>::max() }) },
+													  });
 
 	callTableMethod("getAttributes");
 	EXPECT_EQ(maxPublicDerivedStat, numberField(-1, "pot"));

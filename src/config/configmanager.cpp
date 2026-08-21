@@ -463,7 +463,7 @@ std::optional<DerivedStatMultipliers> ConfigManager::loadDerivedStatMultipliers(
 	struct Definition {
 		const char* key;
 		double defaultValue;
-		double DerivedStatMultipliers::* member;
+		double DerivedStatMultipliers::*member;
 	};
 
 	static constexpr std::array definitions {

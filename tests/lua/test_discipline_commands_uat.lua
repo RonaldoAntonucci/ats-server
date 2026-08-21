@@ -56,15 +56,14 @@ local hero = {
 		}
 	end,
 	getDisciplines = function()
-		return rank == 0 and {}
-			or {
-				{
-					id = 1,
-					name = "Armamento",
-					rank = rank,
-					perLevel = { pot = 1, tec = 1, vig = 1, sin = 0, esp = 0 },
-				},
-			}
+		return rank == 0 and {} or {
+			{
+				id = 1,
+				name = "Armamento",
+				rank = rank,
+				perLevel = { pot = 1, tec = 1, vig = 1, sin = 0, esp = 0 },
+			},
+		}
 	end,
 	sendTextMessage = function(_, kind, text)
 		table.insert(heroMessages, { kind, text })

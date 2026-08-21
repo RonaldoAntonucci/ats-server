@@ -373,8 +373,8 @@ TEST_F(PlayerDisciplinesTest, SaturatedStatsReturnPublicMaximumAndLogPlayerAndSt
 	loadCatalog(R"xml(<disciplines><discipline id="1" name="Armamento"><attribute id="pot" perLevel="4294967295"/></discipline></disciplines>)xml");
 	player->setName("Overflow Hero");
 	player->kv()->scoped("disciplines")->set("ranks", ValueWrapper {
-												  { "1", ValueWrapper(ValueVariant { std::numeric_limits<IntType>::max() }) },
-											  });
+														  { "1", ValueWrapper(ValueVariant { std::numeric_limits<IntType>::max() }) },
+													  });
 	logger().reset();
 
 	player->setLevel(std::numeric_limits<uint32_t>::max());
