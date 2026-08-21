@@ -11,6 +11,7 @@
 #include "creatures/players/disciplines/discipline.hpp"
 #include "creatures/players/vocations/vocation.hpp"
 #include "config/configmanager.hpp"
+#include "items/items.hpp"
 #include "kv/value_wrapper.hpp"
 
 #include <gtest/gtest.h>
@@ -292,6 +293,29 @@ TEST_F(PlayerDisciplinesTest, ValidReloadAffectsTheNextProfileWithoutCacheInvali
 	EXPECT_EQ((DerivedStatTotals { 3, 3, 3, 6, 6, 3, 3 }), player->disciplines().profile(player->getLevel()).stats);
 }
 
+TEST_F(PlayerDisciplinesTest, InvalidReloadKeepsTheNextProfileOnTheCompletePreviousSnapshot) {
+	loadCatalog(R"xml(<disciplines><discipline id="1" name="All"><attribute id="pot" perLevel="1"/><attribute id="tec" perLevel="1"/><attribute id="vig" perLevel="1"/><attribute id="sin" perLevel="1"/><attribute id="esp" perLevel="1"/></discipline></disciplines>)xml");
+	ASSERT_TRUE(player->disciplines().addRank(1).success());
+	writeUniformConfig(2.0);
+	ASSERT_TRUE(configManager().load());
+	const auto previous = player->disciplines().profile(player->getLevel()).stats;
+	ASSERT_EQ((DerivedStatTotals { 2, 2, 2, 4, 4, 2, 2 }), previous);
+
+	writeConfig(R"lua(
+characterPotToPhysicalAttackMultiplier = 9
+characterPotToPhysicalDefenseMultiplier = 9
+characterTecToPrecisionMultiplier = 9
+characterVigToMaximumHealthMultiplier = 9
+characterVigToPhysicalDefenseMultiplier = 9
+characterSinToMagicalAttackMultiplier = 9
+characterSinToMagicalDefenseMultiplier = 9
+characterEspToMaximumManaMultiplier = -1
+characterEspToMagicalDefenseMultiplier = 9
+)lua");
+	EXPECT_FALSE(reloadConfig());
+	EXPECT_EQ(previous, player->disciplines().profile(player->getLevel()).stats);
+}
+
 TEST_F(PlayerDisciplinesTest, RankChangesAffectTheNextStatsWithoutPersistingDerivedValues) {
 	ASSERT_TRUE(player->disciplines().addRank(1).success());
 	ASSERT_EQ(1u, kvMemory().writes());
@@ -374,6 +398,48 @@ TEST_F(PlayerDisciplinesTest, ProfileCalculationLeavesRuntimeHealthAndManaUntouc
 	EXPECT_EQ(maximumHealth, player->getMaxHealth());
 	EXPECT_EQ(mana, player->getMana());
 	EXPECT_EQ(maximumMana, player->getMaxMana());
+}
+
+TEST_F(PlayerDisciplinesTest, ProfileCalculationLeavesCombatBehaviorUntouched) {
+	loadCatalog(R"xml(<disciplines><discipline id="1" name="All"><attribute id="pot" perLevel="1"/><attribute id="tec" perLevel="1"/><attribute id="vig" perLevel="1"/><attribute id="sin" perLevel="1"/><attribute id="esp" perLevel="1"/></discipline></disciplines>)xml");
+	ASSERT_TRUE(player->disciplines().addRank(1).success());
+	player->setTestVocation(std::make_shared<Vocation>(1));
+
+	CombatDamage damage;
+	damage.primary.type = COMBAT_PHYSICALDAMAGE;
+	damage.primary.value = 137;
+	damage.critical = true;
+	damage.criticalChance = 23;
+	player->setCombatDamage(damage);
+	ItemType accuracyFixture;
+
+	const auto damageBefore = player->getCombatDamage();
+	const auto mitigationBefore = player->getMitigation();
+	const auto armorBefore = player->getArmor();
+	const auto defenseBefore = player->getDefense();
+	const auto accuracyBefore = player->getDamageAccuracy(accuracyFixture);
+	const auto evasionBefore = player->getDodgeChance();
+	const auto criticalChanceBefore = player->getBaseCritical().chance;
+	const auto criticalDamageBefore = player->getBaseCritical().damage;
+
+	const auto profile = player->disciplines().profile(player->getLevel());
+	EXPECT_GT(stat(profile, DerivedStat::PhysicalAttack), 0u);
+	EXPECT_GT(stat(profile, DerivedStat::MagicalAttack), 0u);
+	EXPECT_GT(stat(profile, DerivedStat::Precision), 0u);
+	EXPECT_GT(stat(profile, DerivedStat::PhysicalDefense), 0u);
+	EXPECT_GT(stat(profile, DerivedStat::MagicalDefense), 0u);
+	const auto damageAfter = player->getCombatDamage();
+	EXPECT_EQ(damageBefore.primary.type, damageAfter.primary.type);
+	EXPECT_EQ(damageBefore.primary.value, damageAfter.primary.value);
+	EXPECT_EQ(damageBefore.critical, damageAfter.critical);
+	EXPECT_EQ(damageBefore.criticalChance, damageAfter.criticalChance);
+	EXPECT_EQ(mitigationBefore, player->getMitigation());
+	EXPECT_EQ(armorBefore, player->getArmor());
+	EXPECT_EQ(defenseBefore, player->getDefense());
+	EXPECT_EQ(accuracyBefore, player->getDamageAccuracy(accuracyFixture));
+	EXPECT_EQ(evasionBefore, player->getDodgeChance());
+	EXPECT_EQ(criticalChanceBefore, player->getBaseCritical().chance);
+	EXPECT_EQ(criticalDamageBefore, player->getBaseCritical().damage);
 }
 
 TEST_F(PlayerDisciplinesTest, DerivesArmamentoAttributesFromLevelAndRank) {

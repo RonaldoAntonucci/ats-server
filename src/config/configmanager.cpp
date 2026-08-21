@@ -14,7 +14,9 @@
 #include "server/network/webhook/webhook.hpp"
 #include "utils/tools.hpp"
 
-#include <cmath>
+#ifndef USE_PRECOMPILED_HEADERS
+	#include <cmath>
+#endif
 
 #if LUA_VERSION_NUM >= 502
 	#undef lua_strlen

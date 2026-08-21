@@ -9,7 +9,9 @@
 
 #include "creatures/players/stats/character_stats.hpp"
 
-#include <cmath>
+#ifndef USE_PRECOMPILED_HEADERS
+	#include <cmath>
+#endif
 
 namespace {
 	constexpr std::array<std::string_view, static_cast<size_t>(CharacterAttribute::Last)> attributeIds = {
