@@ -21,13 +21,13 @@ function profile.onSay(player, words, param)
 		("ESP: %d"):format(attributes.esp),
 		"",
 		"Status",
-		("Ataque Físico: %d"):format(stats.physicalAttack),
-		("Ataque Mágico: %d"):format(stats.magicalAttack),
-		("Precisão: %d"):format(stats.precision),
-		("Defesa Física: %d"):format(stats.physicalDefense),
-		("Defesa Mágica: %d"):format(stats.magicalDefense),
-		("Vida Máxima: %d"):format(stats.maximumHealth),
-		("Mana Máxima: %d"):format(stats.maximumMana),
+		("Ataque Fisico: %d"):format(stats.physicalAttack),
+		("Ataque Magico: %d"):format(stats.magicalAttack),
+		("Precisao: %d"):format(stats.precision),
+		("Defesa Fisica: %d"):format(stats.physicalDefense),
+		("Defesa Magica: %d"):format(stats.magicalDefense),
+		("Vida Maxima: %d"):format(stats.maximumHealth),
+		("Mana Maxima: %d"):format(stats.maximumMana),
 		"",
 		"Disciplinas",
 	}
@@ -35,10 +35,10 @@ function profile.onSay(player, words, param)
 		table.insert(lines, "Nenhuma disciplina adquirida.")
 	else
 		for _, discipline in ipairs(disciplines) do
-			table.insert(lines, ("[%d] %s — Rank %d"):format(discipline.id, discipline.name, discipline.rank))
+			table.insert(lines, ("[%d] %s - Rank %d"):format(discipline.id, discipline.name, discipline.rank))
 			local contributions = {}
 			for _, attribute in ipairs(attributePresentation) do
-				local value = discipline.perLevel[attribute.key]
+				local value = discipline.perLevel[attribute.key] * discipline.rank
 				if value > 0 then
 					table.insert(contributions, ("+%d %s"):format(value, attribute.label))
 				end

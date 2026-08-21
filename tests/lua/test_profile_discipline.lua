@@ -71,7 +71,7 @@ local emptyProfile = {
 	disciplines = {},
 }
 
-local emptyText = "Atributos\nPOT: 0\nTEC: 0\nVIG: 0\nSIN: 0\nESP: 0\n\nStatus\nAtaque Físico: 0\nAtaque Mágico: 0\nPrecisão: 0\nDefesa Física: 0\nDefesa Mágica: 0\nVida Máxima: 0\nMana Máxima: 0\n\nDisciplinas\nNenhuma disciplina adquirida."
+local emptyText = "Atributos\nPOT: 0\nTEC: 0\nVIG: 0\nSIN: 0\nESP: 0\n\nStatus\nAtaque Fisico: 0\nAtaque Magico: 0\nPrecisao: 0\nDefesa Fisica: 0\nDefesa Magica: 0\nVida Maxima: 0\nMana Maxima: 0\n\nDisciplinas\nNenhuma disciplina adquirida."
 
 local normativeProfile = {
 	attributes = { pot = 10, tec = 10, vig = 10, sin = 0, esp = 0 },
@@ -102,7 +102,7 @@ end)
 test("renders the normative attribute and derived-stat example", function()
 	local player, state = playerWith(normativeProfile)
 	registration.action.onSay(player, "!profile", "")
-	assert_equal("Atributos\nPOT: 10\nTEC: 10\nVIG: 10\nSIN: 0\nESP: 0\n\nStatus\nAtaque Físico: 10\nAtaque Mágico: 0\nPrecisão: 10\nDefesa Física: 10\nDefesa Mágica: 0\nVida Máxima: 50\nMana Máxima: 0\n\nDisciplinas\nNenhuma disciplina adquirida.", state.popup)
+	assert_equal("Atributos\nPOT: 10\nTEC: 10\nVIG: 10\nSIN: 0\nESP: 0\n\nStatus\nAtaque Fisico: 10\nAtaque Magico: 0\nPrecisao: 10\nDefesa Fisica: 10\nDefesa Magica: 0\nVida Maxima: 50\nMana Maxima: 0\n\nDisciplinas\nNenhuma disciplina adquirida.", state.popup)
 end)
 
 test("shows owned disciplines with id name and rank", function()
@@ -127,7 +127,7 @@ test("shows owned disciplines with id name and rank", function()
 		},
 	})
 	registration.action.onSay(player, "!profile", "")
-	assert_equal("Atributos\nPOT: 12\nTEC: 9\nVIG: 6\nSIN: 0\nESP: 3\n\nStatus\nAtaque Físico: 12\nAtaque Mágico: 0\nPrecisão: 9\nDefesa Física: 8\nDefesa Mágica: 3\nVida Máxima: 30\nMana Máxima: 15\n\nDisciplinas\n[1] Armamento — Rank 2\n  Por level: +1 POT, +1 TEC, +1 VIG", state.popup)
+	assert_equal("Atributos\nPOT: 12\nTEC: 9\nVIG: 6\nSIN: 0\nESP: 3\n\nStatus\nAtaque Fisico: 12\nAtaque Magico: 0\nPrecisao: 9\nDefesa Fisica: 8\nDefesa Magica: 3\nVida Maxima: 30\nMana Maxima: 15\n\nDisciplinas\n[1] Armamento - Rank 2\n  Por level: +2 POT, +2 TEC, +2 VIG", state.popup)
 end)
 
 test("preserves the ascending order supplied by the profile API", function()
@@ -181,7 +181,7 @@ test("omits the whole per-level line when every contribution is zero", function(
 		},
 	})
 	registration.action.onSay(player, "!profile", "")
-	assert(state.popup:find("[4] Sem Atributos — Rank 3", 1, true))
+	assert(state.popup:find("[4] Sem Atributos - Rank 3", 1, true))
 	assert_equal(nil, state.popup:find("Por level", 1, true))
 end)
 
@@ -195,7 +195,7 @@ test("keeps each per-level line attached to its discipline", function()
 		},
 	})
 	registration.action.onSay(player, "!profile", "")
-	local expected = "[1] Armamento — Rank 2\n  Por level: +1 POT, +1 TEC, +1 VIG\n[5] Arcana — Rank 1\n  Por level: +2 SIN, +3 ESP"
+	local expected = "[1] Armamento - Rank 2\n  Por level: +2 POT, +2 TEC, +2 VIG\n[5] Arcana - Rank 1\n  Por level: +2 SIN, +3 ESP"
 	assert(state.popup:find(expected, 1, true))
 end)
 
@@ -219,13 +219,13 @@ test("keeps every attribute and status in its fixed presentation order", functio
 		"VIG:",
 		"SIN:",
 		"ESP:",
-		"Ataque Físico:",
-		"Ataque Mágico:",
-		"Precisão:",
-		"Defesa Física:",
-		"Defesa Mágica:",
-		"Vida Máxima:",
-		"Mana Máxima:",
+		"Ataque Fisico:",
+		"Ataque Magico:",
+		"Precisao:",
+		"Defesa Fisica:",
+		"Defesa Magica:",
+		"Vida Maxima:",
+		"Mana Maxima:",
 	}
 	local previous = 0
 	for _, label in ipairs(labels) do
