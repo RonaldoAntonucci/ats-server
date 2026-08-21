@@ -39,21 +39,32 @@ local hero = {
 		rank = rank - 1
 		return true, before, rank, "success"
 	end,
-	getDisciplineProfile = function()
+	getAttributes = function()
+		local attributes = level * rank
+		return { pot = attributes, tec = attributes, vig = attributes, sin = 0, esp = 0 }
+	end,
+	getStats = function()
 		local attributes = level * rank
 		return {
-			attributes = { pot = attributes, tec = attributes, vig = attributes, sin = 0, esp = 0 },
-			stats = {
-				physicalAttack = attributes,
-				magicalAttack = 0,
-				precision = attributes,
-				physicalDefense = attributes,
-				magicalDefense = 0,
-				maximumHealth = attributes * 5,
-				maximumMana = 0,
-			},
-			disciplines = rank == 0 and {} or { { id = 1, name = "Armamento", rank = rank } },
+			physicalAttack = attributes,
+			magicalAttack = 0,
+			precision = attributes,
+			physicalDefense = attributes,
+			magicalDefense = 0,
+			maximumHealth = attributes * 5,
+			maximumMana = 0,
 		}
+	end,
+	getDisciplines = function()
+		return rank == 0 and {}
+			or {
+				{
+					id = 1,
+					name = "Armamento",
+					rank = rank,
+					perLevel = { pot = 1, tec = 1, vig = 1, sin = 0, esp = 0 },
+				},
+			}
 	end,
 	sendTextMessage = function(_, kind, text)
 		table.insert(heroMessages, { kind, text })
@@ -86,11 +97,11 @@ assert(actions["!discipline"].registered and actions["!discipline"].group == "ga
 assert(actions["!discipline"].onSay(admin, "!discipline", "add, Hero, 1"))
 assert(rank == 1)
 assert(actions["!profile"].onSay(hero, "!profile", ""))
-assert(hero.popup == "Atributos\nPOT: 5\nTEC: 5\nVIG: 5\nSIN: 0\nESP: 0\n\nStatus\nAtaque Físico: 5\nAtaque Mágico: 0\nPrecisão: 5\nDefesa Física: 5\nDefesa Mágica: 0\nVida Máxima: 25\nMana Máxima: 0\n\nDisciplinas\n[1] Armamento — Rank 1")
+assert(hero.popup == "Atributos\nPOT: 5\nTEC: 5\nVIG: 5\nSIN: 0\nESP: 0\n\nStatus\nAtaque Fisico: 5\nAtaque Magico: 0\nPrecisao: 5\nDefesa Fisica: 5\nDefesa Magica: 0\nVida Maxima: 25\nMana Maxima: 0\n\nDisciplinas\n[1] Armamento - Rank 1\n  Por level: +1 POT, +1 TEC, +1 VIG")
 
 assert(actions["!discipline"].onSay(admin, "!discipline", "remove, Hero, 1"))
 assert(rank == 0)
 assert(actions["!profile"].onSay(hero, "!profile", ""))
-assert(hero.popup == "Atributos\nPOT: 0\nTEC: 0\nVIG: 0\nSIN: 0\nESP: 0\n\nStatus\nAtaque Físico: 0\nAtaque Mágico: 0\nPrecisão: 0\nDefesa Física: 0\nDefesa Mágica: 0\nVida Máxima: 0\nMana Máxima: 0\n\nDisciplinas\nNenhuma disciplina adquirida.")
+assert(hero.popup == "Atributos\nPOT: 0\nTEC: 0\nVIG: 0\nSIN: 0\nESP: 0\n\nStatus\nAtaque Fisico: 0\nAtaque Magico: 0\nPrecisao: 0\nDefesa Fisica: 0\nDefesa Magica: 0\nVida Maxima: 0\nMana Maxima: 0\n\nDisciplinas\nNenhuma disciplina adquirida.")
 
 print("\n1 passed, 0 failed")

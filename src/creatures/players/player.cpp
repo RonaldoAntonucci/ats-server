@@ -123,6 +123,7 @@ Player::Player() :
 	m_playerAttachedEffects(*this),
 	m_storage(*this),
 	m_disciplines(*this),
+	m_characterStats(*this),
 	m_forgeHistoryPlayer(*this),
 	m_weaponProficiency(*this) {
 }
@@ -142,6 +143,7 @@ Player::Player(std::shared_ptr<ProtocolGame> p) :
 	m_playerAttachedEffects(*this),
 	m_storage(*this),
 	m_disciplines(*this),
+	m_characterStats(*this),
 	m_forgeHistoryPlayer(*this),
 	m_weaponProficiency(*this) {
 	baseCritical.chance = g_configManager().getFloat(PLAYER_BASE_CRITICAL_CHANCE);
@@ -12759,6 +12761,14 @@ PlayerDisciplines &Player::disciplines() {
 
 const PlayerDisciplines &Player::disciplines() const {
 	return m_disciplines;
+}
+
+PlayerCharacterStats &Player::characterStats() {
+	return m_characterStats;
+}
+
+const PlayerCharacterStats &Player::characterStats() const {
+	return m_characterStats;
 }
 
 // Weapon Proficiency interface

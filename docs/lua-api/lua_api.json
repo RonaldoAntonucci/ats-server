@@ -6074,6 +6074,42 @@
         "source": "src/lua/functions/creatures/player/player_functions.cpp"
       },
       {
+        "name": "getAttributeEsp",
+        "params": [],
+        "return": "integer|nil",
+        "source": "src/lua/functions/creatures/player/player_functions.cpp"
+      },
+      {
+        "name": "getAttributePot",
+        "params": [],
+        "return": "integer|nil",
+        "source": "src/lua/functions/creatures/player/player_functions.cpp"
+      },
+      {
+        "name": "getAttributeSin",
+        "params": [],
+        "return": "integer|nil",
+        "source": "src/lua/functions/creatures/player/player_functions.cpp"
+      },
+      {
+        "name": "getAttributeTec",
+        "params": [],
+        "return": "integer|nil",
+        "source": "src/lua/functions/creatures/player/player_functions.cpp"
+      },
+      {
+        "name": "getAttributeVig",
+        "params": [],
+        "return": "integer|nil",
+        "source": "src/lua/functions/creatures/player/player_functions.cpp"
+      },
+      {
+        "name": "getAttributes",
+        "params": [],
+        "return": "{ pot: integer, tec: integer, vig: integer, sin: integer, esp: integer }|nil",
+        "source": "src/lua/functions/creatures/player/player_functions.cpp"
+      },
+      {
         "name": "getBackpack",
         "params": [],
         "return": "nil|Container",
@@ -6226,9 +6262,9 @@
         "source": "src/lua/functions/creatures/player/player_functions.cpp"
       },
       {
-        "name": "getDisciplineProfile",
+        "name": "getDisciplines",
         "params": [],
-        "return": "{ attributes: { for: integer, des: integer, vit: integer, int: integer, von: integer }, disciplines: { id: integer, name: string, rank: integer }[] }|nil",
+        "return": "{ id: integer, name: string, rank: integer, perLevel: { pot: integer, tec: integer, vig: integer, sin: integer, esp: integer } }[]|nil",
         "source": "src/lua/functions/creatures/player/player_functions.cpp"
       },
       {
@@ -6684,6 +6720,54 @@
           "itemId: number|string"
         ],
         "return": "number|nil",
+        "source": "src/lua/functions/creatures/player/player_functions.cpp"
+      },
+      {
+        "name": "getStatMagicalAttack",
+        "params": [],
+        "return": "integer|nil",
+        "source": "src/lua/functions/creatures/player/player_functions.cpp"
+      },
+      {
+        "name": "getStatMagicalDefense",
+        "params": [],
+        "return": "integer|nil",
+        "source": "src/lua/functions/creatures/player/player_functions.cpp"
+      },
+      {
+        "name": "getStatMaximumHealth",
+        "params": [],
+        "return": "integer|nil",
+        "source": "src/lua/functions/creatures/player/player_functions.cpp"
+      },
+      {
+        "name": "getStatMaximumMana",
+        "params": [],
+        "return": "integer|nil",
+        "source": "src/lua/functions/creatures/player/player_functions.cpp"
+      },
+      {
+        "name": "getStatPhysicalAttack",
+        "params": [],
+        "return": "integer|nil",
+        "source": "src/lua/functions/creatures/player/player_functions.cpp"
+      },
+      {
+        "name": "getStatPhysicalDefense",
+        "params": [],
+        "return": "integer|nil",
+        "source": "src/lua/functions/creatures/player/player_functions.cpp"
+      },
+      {
+        "name": "getStatPrecision",
+        "params": [],
+        "return": "integer|nil",
+        "source": "src/lua/functions/creatures/player/player_functions.cpp"
+      },
+      {
+        "name": "getStats",
+        "params": [],
+        "return": "{ physicalAttack: integer, magicalAttack: integer, precision: integer, physicalDefense: integer, magicalDefense: integer, maximumHealth: integer, maximumMana: integer }|nil",
         "source": "src/lua/functions/creatures/player/player_functions.cpp"
       },
       {

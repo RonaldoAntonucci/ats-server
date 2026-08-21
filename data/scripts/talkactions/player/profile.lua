@@ -1,9 +1,17 @@
 local profile = TalkAction("!profile")
 
+local attributePresentation = {
+	{ key = "pot", label = "POT" },
+	{ key = "tec", label = "TEC" },
+	{ key = "vig", label = "VIG" },
+	{ key = "sin", label = "SIN" },
+	{ key = "esp", label = "ESP" },
+}
+
 function profile.onSay(player, words, param)
-	local data = player:getDisciplineProfile()
-	local attributes = data.attributes
-	local stats = data.stats
+	local attributes = player:getAttributes()
+	local stats = player:getStats()
+	local disciplines = player:getDisciplines()
 	local lines = {
 		"Atributos",
 		("POT: %d"):format(attributes.pot),
@@ -13,21 +21,31 @@ function profile.onSay(player, words, param)
 		("ESP: %d"):format(attributes.esp),
 		"",
 		"Status",
-		("Ataque Físico: %d"):format(stats.physicalAttack),
-		("Ataque Mágico: %d"):format(stats.magicalAttack),
-		("Precisão: %d"):format(stats.precision),
-		("Defesa Física: %d"):format(stats.physicalDefense),
-		("Defesa Mágica: %d"):format(stats.magicalDefense),
-		("Vida Máxima: %d"):format(stats.maximumHealth),
-		("Mana Máxima: %d"):format(stats.maximumMana),
+		("Ataque Fisico: %d"):format(stats.physicalAttack),
+		("Ataque Magico: %d"):format(stats.magicalAttack),
+		("Precisao: %d"):format(stats.precision),
+		("Defesa Fisica: %d"):format(stats.physicalDefense),
+		("Defesa Magica: %d"):format(stats.magicalDefense),
+		("Vida Maxima: %d"):format(stats.maximumHealth),
+		("Mana Maxima: %d"):format(stats.maximumMana),
 		"",
 		"Disciplinas",
 	}
-	if #data.disciplines == 0 then
+	if #disciplines == 0 then
 		table.insert(lines, "Nenhuma disciplina adquirida.")
 	else
-		for _, discipline in ipairs(data.disciplines) do
-			table.insert(lines, ("[%d] %s — Rank %d"):format(discipline.id, discipline.name, discipline.rank))
+		for _, discipline in ipairs(disciplines) do
+			table.insert(lines, ("[%d] %s - Rank %d"):format(discipline.id, discipline.name, discipline.rank))
+			local contributions = {}
+			for _, attribute in ipairs(attributePresentation) do
+				local value = discipline.perLevel[attribute.key] * discipline.rank
+				if value > 0 then
+					table.insert(contributions, ("+%d %s"):format(value, attribute.label))
+				end
+			end
+			if #contributions > 0 then
+				table.insert(lines, "  Por level: " .. table.concat(contributions, ", "))
+			end
 		end
 	end
 	player:popupFYI(table.concat(lines, "\n"))
