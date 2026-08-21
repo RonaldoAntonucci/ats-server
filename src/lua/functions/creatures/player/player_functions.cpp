@@ -1589,6 +1589,7 @@ int PlayerFunctions::luaPlayerGetStats(lua_State* L) {
  * @return integer|nil
  */
 int PlayerFunctions::luaPlayerGetAttributePot(lua_State* L) {
+	// player:getAttributePot()
 	return pushAttribute(L, CharacterAttribute::Potency);
 }
 
@@ -1597,6 +1598,7 @@ int PlayerFunctions::luaPlayerGetAttributePot(lua_State* L) {
  * @return integer|nil
  */
 int PlayerFunctions::luaPlayerGetAttributeTec(lua_State* L) {
+	// player:getAttributeTec()
 	return pushAttribute(L, CharacterAttribute::Technique);
 }
 
@@ -1605,6 +1607,7 @@ int PlayerFunctions::luaPlayerGetAttributeTec(lua_State* L) {
  * @return integer|nil
  */
 int PlayerFunctions::luaPlayerGetAttributeVig(lua_State* L) {
+	// player:getAttributeVig()
 	return pushAttribute(L, CharacterAttribute::Vigor);
 }
 
@@ -1613,6 +1616,7 @@ int PlayerFunctions::luaPlayerGetAttributeVig(lua_State* L) {
  * @return integer|nil
  */
 int PlayerFunctions::luaPlayerGetAttributeSin(lua_State* L) {
+	// player:getAttributeSin()
 	return pushAttribute(L, CharacterAttribute::Attunement);
 }
 
@@ -1621,6 +1625,7 @@ int PlayerFunctions::luaPlayerGetAttributeSin(lua_State* L) {
  * @return integer|nil
  */
 int PlayerFunctions::luaPlayerGetAttributeEsp(lua_State* L) {
+	// player:getAttributeEsp()
 	return pushAttribute(L, CharacterAttribute::Spirit);
 }
 
@@ -1629,6 +1634,7 @@ int PlayerFunctions::luaPlayerGetAttributeEsp(lua_State* L) {
  * @return integer|nil
  */
 int PlayerFunctions::luaPlayerGetStatPhysicalAttack(lua_State* L) {
+	// player:getStatPhysicalAttack()
 	return pushStat(L, DerivedStat::PhysicalAttack);
 }
 
@@ -1637,6 +1643,7 @@ int PlayerFunctions::luaPlayerGetStatPhysicalAttack(lua_State* L) {
  * @return integer|nil
  */
 int PlayerFunctions::luaPlayerGetStatMagicalAttack(lua_State* L) {
+	// player:getStatMagicalAttack()
 	return pushStat(L, DerivedStat::MagicalAttack);
 }
 
@@ -1645,6 +1652,7 @@ int PlayerFunctions::luaPlayerGetStatMagicalAttack(lua_State* L) {
  * @return integer|nil
  */
 int PlayerFunctions::luaPlayerGetStatPrecision(lua_State* L) {
+	// player:getStatPrecision()
 	return pushStat(L, DerivedStat::Precision);
 }
 
@@ -1653,6 +1661,7 @@ int PlayerFunctions::luaPlayerGetStatPrecision(lua_State* L) {
  * @return integer|nil
  */
 int PlayerFunctions::luaPlayerGetStatPhysicalDefense(lua_State* L) {
+	// player:getStatPhysicalDefense()
 	return pushStat(L, DerivedStat::PhysicalDefense);
 }
 
@@ -1661,6 +1670,7 @@ int PlayerFunctions::luaPlayerGetStatPhysicalDefense(lua_State* L) {
  * @return integer|nil
  */
 int PlayerFunctions::luaPlayerGetStatMagicalDefense(lua_State* L) {
+	// player:getStatMagicalDefense()
 	return pushStat(L, DerivedStat::MagicalDefense);
 }
 
@@ -1669,6 +1679,7 @@ int PlayerFunctions::luaPlayerGetStatMagicalDefense(lua_State* L) {
  * @return integer|nil
  */
 int PlayerFunctions::luaPlayerGetStatMaximumHealth(lua_State* L) {
+	// player:getStatMaximumHealth()
 	return pushStat(L, DerivedStat::MaximumHealth);
 }
 
@@ -1677,6 +1688,7 @@ int PlayerFunctions::luaPlayerGetStatMaximumHealth(lua_State* L) {
  * @return integer|nil
  */
 int PlayerFunctions::luaPlayerGetStatMaximumMana(lua_State* L) {
+	// player:getStatMaximumMana()
 	return pushStat(L, DerivedStat::MaximumMana);
 }
 

@@ -3233,6 +3233,24 @@ function Player:getAccountType() end
 ---@return number
 function Player:getAchievementPoints() end
 
+---@return integer|nil
+function Player:getAttributeEsp() end
+
+---@return integer|nil
+function Player:getAttributePot() end
+
+---@return integer|nil
+function Player:getAttributeSin() end
+
+---@return integer|nil
+function Player:getAttributeTec() end
+
+---@return integer|nil
+function Player:getAttributeVig() end
+
+---@return { pot: integer, tec: integer, vig: integer, sin: integer, esp: integer }|nil
+function Player:getAttributes() end
+
 ---@return nil|Container
 function Player:getBackpack() end
 
@@ -3312,48 +3330,6 @@ function Player:getDepotLocker(depotId) end
 
 ---@return { id: integer, name: string, rank: integer, perLevel: { pot: integer, tec: integer, vig: integer, sin: integer, esp: integer } }[]|nil
 function Player:getDisciplines() end
-
----@return { pot: integer, tec: integer, vig: integer, sin: integer, esp: integer }|nil
-function Player:getAttributes() end
-
----@return { physicalAttack: integer, magicalAttack: integer, precision: integer, physicalDefense: integer, magicalDefense: integer, maximumHealth: integer, maximumMana: integer }|nil
-function Player:getStats() end
-
----@return integer|nil
-function Player:getAttributePot() end
-
----@return integer|nil
-function Player:getAttributeTec() end
-
----@return integer|nil
-function Player:getAttributeVig() end
-
----@return integer|nil
-function Player:getAttributeSin() end
-
----@return integer|nil
-function Player:getAttributeEsp() end
-
----@return integer|nil
-function Player:getStatPhysicalAttack() end
-
----@return integer|nil
-function Player:getStatMagicalAttack() end
-
----@return integer|nil
-function Player:getStatPrecision() end
-
----@return integer|nil
-function Player:getStatPhysicalDefense() end
-
----@return integer|nil
-function Player:getStatMagicalDefense() end
-
----@return integer|nil
-function Player:getStatMaximumHealth() end
-
----@return integer|nil
-function Player:getStatMaximumMana() end
 
 ---@param skillType any
 ---@return number|nil
@@ -3585,6 +3561,30 @@ function Player:getStashCount() end
 ---@param itemId number|string
 ---@return number|nil
 function Player:getStashItemCount(itemId) end
+
+---@return integer|nil
+function Player:getStatMagicalAttack() end
+
+---@return integer|nil
+function Player:getStatMagicalDefense() end
+
+---@return integer|nil
+function Player:getStatMaximumHealth() end
+
+---@return integer|nil
+function Player:getStatMaximumMana() end
+
+---@return integer|nil
+function Player:getStatPhysicalAttack() end
+
+---@return integer|nil
+function Player:getStatPhysicalDefense() end
+
+---@return integer|nil
+function Player:getStatPrecision() end
+
+---@return { physicalAttack: integer, magicalAttack: integer, precision: integer, physicalDefense: integer, magicalDefense: integer, maximumHealth: integer, maximumMana: integer }|nil
+function Player:getStats() end
 
 ---@param key number
 ---@return number|nil
