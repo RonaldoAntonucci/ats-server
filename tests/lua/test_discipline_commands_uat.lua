@@ -56,7 +56,15 @@ local hero = {
 		}
 	end,
 	getDisciplines = function()
-		return rank == 0 and {} or { { id = 1, name = "Armamento", rank = rank } }
+		return rank == 0 and {}
+			or {
+				{
+					id = 1,
+					name = "Armamento",
+					rank = rank,
+					perLevel = { pot = 1, tec = 1, vig = 1, sin = 0, esp = 0 },
+				},
+			}
 	end,
 	sendTextMessage = function(_, kind, text)
 		table.insert(heroMessages, { kind, text })
@@ -89,7 +97,7 @@ assert(actions["!discipline"].registered and actions["!discipline"].group == "ga
 assert(actions["!discipline"].onSay(admin, "!discipline", "add, Hero, 1"))
 assert(rank == 1)
 assert(actions["!profile"].onSay(hero, "!profile", ""))
-assert(hero.popup == "Atributos\nPOT: 5\nTEC: 5\nVIG: 5\nSIN: 0\nESP: 0\n\nStatus\nAtaque Físico: 5\nAtaque Mágico: 0\nPrecisão: 5\nDefesa Física: 5\nDefesa Mágica: 0\nVida Máxima: 25\nMana Máxima: 0\n\nDisciplinas\n[1] Armamento — Rank 1")
+assert(hero.popup == "Atributos\nPOT: 5\nTEC: 5\nVIG: 5\nSIN: 0\nESP: 0\n\nStatus\nAtaque Físico: 5\nAtaque Mágico: 0\nPrecisão: 5\nDefesa Física: 5\nDefesa Mágica: 0\nVida Máxima: 25\nMana Máxima: 0\n\nDisciplinas\n[1] Armamento — Rank 1\n  Por level: +1 POT, +1 TEC, +1 VIG")
 
 assert(actions["!discipline"].onSay(admin, "!discipline", "remove, Hero, 1"))
 assert(rank == 0)
