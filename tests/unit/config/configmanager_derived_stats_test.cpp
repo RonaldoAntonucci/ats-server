@@ -29,6 +29,16 @@ namespace {
 
 	class ConfigManagerDerivedStatsTest : public ::testing::Test {
 	protected:
+		static void SetUpTestSuite() {
+			previousTestContainer = DI::getTestContainer();
+			InMemoryLogger::install(injector);
+			DI::setTestContainer(&injector);
+		}
+
+		static void TearDownTestSuite() {
+			DI::setTestContainer(previousTestContainer);
+		}
+
 		void SetUp() override {
 			logger().reset();
 			temporaryDirectory = std::filesystem::temp_directory_path() / ("canary-derived-stats-config-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
@@ -64,12 +74,15 @@ namespace {
 		}
 
 		static InMemoryLogger &logger() {
-			return dynamic_cast<InMemoryLogger &>(DI::get<Logger>());
+			return dynamic_cast<InMemoryLogger &>(injector.create<Logger &>());
 		}
 
 		ConfigManager manager;
 		std::filesystem::path temporaryDirectory;
 		std::filesystem::path file;
+
+		inline static di::extension::injector<> injector {};
+		inline static di::extension::injector<>* previousTestContainer = nullptr;
 	};
 } // namespace
 

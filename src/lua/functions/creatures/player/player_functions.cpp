@@ -1482,7 +1482,7 @@ namespace {
 
 /***
  * @function Player:getDisciplineProfile
- * @return { attributes: { for: integer, des: integer, vit: integer, int: integer, von: integer }, disciplines: { id: integer, name: string, rank: integer }[] }|nil
+ * @return { attributes: { pot: integer, tec: integer, vig: integer, sin: integer, esp: integer }, stats: { physicalAttack: integer, magicalAttack: integer, precision: integer, physicalDefense: integer, magicalDefense: integer, maximumHealth: integer, maximumMana: integer }, disciplines: { id: integer, name: string, rank: integer }[] }|nil
  */
 int PlayerFunctions::luaPlayerGetDisciplineProfile(lua_State* L) {
 	const auto &player = Lua::getUserdataShared<Player>(L, 1, "Player");
@@ -1491,14 +1491,17 @@ int PlayerFunctions::luaPlayerGetDisciplineProfile(lua_State* L) {
 		return 1;
 	}
 	const auto profile = player->disciplines().profile(player->getLevel());
-	lua_createtable(L, 0, 2);
+	lua_createtable(L, 0, 3);
 	lua_createtable(L, 0, 5);
-	Lua::setField(L, "for", profile.attributes[0]);
-	Lua::setField(L, "des", profile.attributes[1]);
-	Lua::setField(L, "vit", profile.attributes[2]);
-	Lua::setField(L, "int", profile.attributes[3]);
-	Lua::setField(L, "von", profile.attributes[4]);
+	for (size_t index = 0; index < profile.attributes.size(); ++index) {
+		Lua::setField(L, characterAttributeId(static_cast<CharacterAttribute>(index)).data(), std::min(profile.attributes[index], maxPublicDerivedStat));
+	}
 	lua_setfield(L, -2, "attributes");
+	lua_createtable(L, 0, 7);
+	for (size_t index = 0; index < profile.stats.size(); ++index) {
+		Lua::setField(L, derivedStatId(static_cast<DerivedStat>(index)).data(), profile.stats[index]);
+	}
+	lua_setfield(L, -2, "stats");
 	lua_createtable(L, static_cast<int>(profile.disciplines.size()), 0);
 	int index = 0;
 	for (const auto &discipline : profile.disciplines) {
