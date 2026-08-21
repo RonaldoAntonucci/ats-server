@@ -45,6 +45,7 @@ struct DisciplineProfileEntry {
 
 struct DisciplineProfile {
 	AttributeTotals attributes {};
+	DerivedStatTotals stats {};
 	std::vector<DisciplineProfileEntry> disciplines;
 };
 

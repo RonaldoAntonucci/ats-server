@@ -9,6 +9,7 @@
 
 #include "creatures/players/components/player_disciplines.hpp"
 
+#include "config/configmanager.hpp"
 #include "creatures/players/disciplines/discipline.hpp"
 #include "creatures/players/player.hpp"
 #include "kv/kv.hpp"
@@ -63,6 +64,15 @@ DisciplineProfile PlayerDisciplines::profile(uint32_t level) const {
 				continue;
 			}
 			profile.attributes[index] += levelAndRank * perLevel;
+		}
+	}
+
+	const auto multipliers = g_configManager().getDerivedStatMultipliers();
+	const auto calculation = calculateDerivedStats(profile.attributes, *multipliers);
+	profile.stats = calculation.totals;
+	for (size_t index = 0; index < calculation.saturated.size(); ++index) {
+		if (calculation.saturated[index]) {
+			g_logger().error("[CharacterDerivedStats] player={} status={} reason=derived status overflow", player.getName(), derivedStatId(static_cast<DerivedStat>(index)));
 		}
 	}
 	return profile;

@@ -10,6 +10,7 @@
 #include "creatures/players/player.hpp"
 #include "creatures/players/disciplines/discipline.hpp"
 #include "creatures/players/vocations/vocation.hpp"
+#include "config/configmanager.hpp"
 #include "kv/value_wrapper.hpp"
 
 #include <gtest/gtest.h>
@@ -34,8 +35,20 @@ namespace {
 		void SetUp() override {
 			kvMemory().reset();
 			logger().reset();
+			temporaryDirectory = std::filesystem::temp_directory_path() / ("canary-player-disciplines-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+			std::filesystem::create_directories(temporaryDirectory);
+			configFile = temporaryDirectory / "config.lua";
+			writeConfig("");
+			configManager().setConfigFileLua(configFile.string());
+			ASSERT_TRUE(configManager().load());
+			logger().reset();
 			player = std::make_shared<Player>();
 			loadCatalog();
+		}
+
+		void TearDown() override {
+			std::error_code error;
+			std::filesystem::remove_all(temporaryDirectory, error);
 		}
 
 		static KVMemory &kvMemory() {
@@ -44,6 +57,43 @@ namespace {
 
 		static InMemoryLogger &logger() {
 			return dynamic_cast<InMemoryLogger &>(injector.create<Logger &>());
+		}
+
+		static ConfigManager &configManager() {
+			return injector.create<ConfigManager &>();
+		}
+
+		void writeConfig(std::string_view content) const {
+			std::ofstream output(configFile);
+			ASSERT_TRUE(output.is_open());
+			output << content;
+		}
+
+		void writeUniformConfig(double value) const {
+			std::ofstream output(configFile);
+			ASSERT_TRUE(output.is_open());
+			for (const auto key : {
+					 "characterPotToPhysicalAttackMultiplier",
+					 "characterPotToPhysicalDefenseMultiplier",
+					 "characterTecToPrecisionMultiplier",
+					 "characterVigToMaximumHealthMultiplier",
+					 "characterVigToPhysicalDefenseMultiplier",
+					 "characterSinToMagicalAttackMultiplier",
+					 "characterSinToMagicalDefenseMultiplier",
+					 "characterEspToMaximumManaMultiplier",
+					 "characterEspToMagicalDefenseMultiplier",
+				 }) {
+				output << key << " = " << value << '\n';
+			}
+		}
+
+		bool reloadConfig() const {
+			auto &manager = configManager();
+			auto* testContainer = DI::getTestContainer();
+			DI::setTestContainer(previousTestContainer);
+			const auto result = manager.reload();
+			DI::setTestContainer(testContainer);
+			return result;
 		}
 
 		void loadCatalog(std::string_view xml = R"xml(<disciplines><discipline id="1" name="Armamento"><attribute id="pot" perLevel="1"/><attribute id="tec" perLevel="1"/><attribute id="vig" perLevel="1"/><attribute id="sin" perLevel="0"/><attribute id="esp" perLevel="0"/></discipline></disciplines>)xml") {
@@ -61,6 +111,8 @@ namespace {
 		}
 
 		std::shared_ptr<Player> player;
+		std::filesystem::path temporaryDirectory;
+		std::filesystem::path configFile;
 
 		inline static di::extension::injector<> injector {};
 		inline static di::extension::injector<>* previousTestContainer = nullptr;
@@ -68,6 +120,10 @@ namespace {
 
 	[[nodiscard]] uint64_t attribute(const DisciplineProfile &profile, CharacterAttribute type) {
 		return profile.attributes.at(static_cast<size_t>(type));
+	}
+
+	[[nodiscard]] uint64_t stat(const DisciplineProfile &profile, DerivedStat type) {
+		return profile.stats.at(static_cast<size_t>(type));
 	}
 }
 
@@ -194,8 +250,130 @@ TEST_F(PlayerDisciplinesTest, RejectsRankAtTechnicalLimitWithoutMutating) {
 TEST_F(PlayerDisciplinesTest, EmptyProfileContainsFiveZeroAttributes) {
 	const auto profile = player->disciplines().profile(player->getLevel());
 	EXPECT_EQ(AttributeTotals {}, profile.attributes);
+	EXPECT_EQ(DerivedStatTotals {}, profile.stats);
 	EXPECT_TRUE(profile.disciplines.empty());
 	EXPECT_FALSE(persistedRanks().has_value());
+}
+
+TEST_F(PlayerDisciplinesTest, DerivesAllSevenStatsFromDefaultSnapshot) {
+	loadCatalog(R"xml(<disciplines><discipline id="1" name="All"><attribute id="pot" perLevel="1"/><attribute id="tec" perLevel="1"/><attribute id="vig" perLevel="1"/><attribute id="sin" perLevel="1"/><attribute id="esp" perLevel="1"/></discipline></disciplines>)xml");
+	player->setLevel(2);
+	ASSERT_TRUE(player->disciplines().addRank(1).success());
+
+	EXPECT_EQ((DerivedStatTotals { 2, 2, 2, 2, 2, 10, 10 }), player->disciplines().profile(player->getLevel()).stats);
+}
+
+TEST_F(PlayerDisciplinesTest, UsesOneCustomSnapshotForAllSevenStats) {
+	loadCatalog(R"xml(<disciplines><discipline id="1" name="All"><attribute id="pot" perLevel="1"/><attribute id="tec" perLevel="1"/><attribute id="vig" perLevel="1"/><attribute id="sin" perLevel="1"/><attribute id="esp" perLevel="1"/></discipline></disciplines>)xml");
+	ASSERT_TRUE(player->disciplines().addRank(1).success());
+	writeUniformConfig(2.0);
+	ASSERT_TRUE(configManager().load());
+
+	EXPECT_EQ((DerivedStatTotals { 2, 2, 2, 4, 4, 2, 2 }), player->disciplines().profile(player->getLevel()).stats);
+}
+
+TEST_F(PlayerDisciplinesTest, ZeroSnapshotDisablesEveryDerivedContribution) {
+	ASSERT_TRUE(player->disciplines().addRank(1).success());
+	writeUniformConfig(0.0);
+	ASSERT_TRUE(configManager().load());
+
+	EXPECT_EQ(DerivedStatTotals {}, player->disciplines().profile(player->getLevel()).stats);
+}
+
+TEST_F(PlayerDisciplinesTest, ValidReloadAffectsTheNextProfileWithoutCacheInvalidation) {
+	loadCatalog(R"xml(<disciplines><discipline id="1" name="All"><attribute id="pot" perLevel="1"/><attribute id="tec" perLevel="1"/><attribute id="vig" perLevel="1"/><attribute id="sin" perLevel="1"/><attribute id="esp" perLevel="1"/></discipline></disciplines>)xml");
+	ASSERT_TRUE(player->disciplines().addRank(1).success());
+	writeUniformConfig(1.0);
+	ASSERT_TRUE(reloadConfig());
+	EXPECT_EQ((DerivedStatTotals { 1, 1, 1, 2, 2, 1, 1 }), player->disciplines().profile(player->getLevel()).stats);
+
+	writeUniformConfig(3.0);
+	ASSERT_TRUE(reloadConfig());
+	EXPECT_EQ((DerivedStatTotals { 3, 3, 3, 6, 6, 3, 3 }), player->disciplines().profile(player->getLevel()).stats);
+}
+
+TEST_F(PlayerDisciplinesTest, RankChangesAffectTheNextStatsWithoutPersistingDerivedValues) {
+	ASSERT_TRUE(player->disciplines().addRank(1).success());
+	ASSERT_EQ(1u, kvMemory().writes());
+	EXPECT_EQ(1u, stat(player->disciplines().profile(player->getLevel()), DerivedStat::PhysicalAttack));
+	ASSERT_TRUE(player->disciplines().addRank(1).success());
+	ASSERT_EQ(2u, kvMemory().writes());
+	EXPECT_EQ(2u, stat(player->disciplines().profile(player->getLevel()), DerivedStat::PhysicalAttack));
+	EXPECT_EQ(2u, kvMemory().writes());
+}
+
+TEST_F(PlayerDisciplinesTest, RepeatedProfileReadsDoNotPersistAttributesOrStats) {
+	ASSERT_TRUE(player->disciplines().addRank(1).success());
+	const auto persistedBefore = persistedRanks();
+	ASSERT_TRUE(persistedBefore.has_value());
+	ASSERT_EQ(1u, kvMemory().writes());
+
+	(void)player->disciplines().profile(player->getLevel());
+	(void)player->disciplines().profile(player->getLevel());
+
+	EXPECT_EQ(1u, kvMemory().writes());
+	EXPECT_EQ(persistedBefore->get<MapType>(), persistedRanks()->get<MapType>());
+}
+
+TEST_F(PlayerDisciplinesTest, ConcurrentProfilesObserveOnlyCompleteMultiplierSnapshots) {
+	loadCatalog(R"xml(<disciplines><discipline id="1" name="All"><attribute id="pot" perLevel="1"/><attribute id="tec" perLevel="1"/><attribute id="vig" perLevel="1"/><attribute id="sin" perLevel="1"/><attribute id="esp" perLevel="1"/></discipline></disciplines>)xml");
+	ASSERT_TRUE(player->disciplines().addRank(1).success());
+	writeUniformConfig(1.0);
+	ASSERT_TRUE(configManager().load());
+	const DerivedStatTotals first { 1, 1, 1, 2, 2, 1, 1 };
+	const DerivedStatTotals second { 2, 2, 2, 4, 4, 2, 2 };
+	std::atomic_bool stop = false;
+	std::atomic_bool mixed = false;
+	std::jthread reader([&] {
+		while (!stop.load(std::memory_order_acquire)) {
+			const auto stats = player->disciplines().profile(player->getLevel()).stats;
+			if (stats != first && stats != second) {
+				mixed.store(true, std::memory_order_release);
+				return;
+			}
+		}
+	});
+
+	for (int iteration = 0; iteration < 10; ++iteration) {
+		writeUniformConfig(iteration % 2 == 0 ? 2.0 : 1.0);
+		if (!configManager().load()) {
+			mixed.store(true, std::memory_order_release);
+			break;
+		}
+	}
+	stop.store(true, std::memory_order_release);
+	reader.join();
+	EXPECT_FALSE(mixed.load(std::memory_order_acquire));
+}
+
+TEST_F(PlayerDisciplinesTest, SaturatedStatsReturnPublicMaximumAndLogPlayerAndStatus) {
+	loadCatalog(R"xml(<disciplines><discipline id="1" name="Armamento"><attribute id="pot" perLevel="4294967295"/></discipline></disciplines>)xml");
+	player->setName("Overflow Hero");
+	player->kv()->scoped("disciplines")->set("ranks", ValueWrapper {
+												  { "1", ValueWrapper(ValueVariant { std::numeric_limits<IntType>::max() }) },
+											  });
+	logger().reset();
+
+	const auto profile = player->disciplines().profile(std::numeric_limits<uint32_t>::max());
+	EXPECT_EQ(maxPublicDerivedStat, stat(profile, DerivedStat::PhysicalAttack));
+	EXPECT_TRUE(std::ranges::any_of(logger().logs, [](const auto &entry) {
+		return entry.message.find("[CharacterDerivedStats] player=Overflow Hero") != std::string::npos && entry.message.find("status=physicalAttack") != std::string::npos && entry.message.find("reason=derived status overflow") != std::string::npos;
+	}));
+}
+
+TEST_F(PlayerDisciplinesTest, ProfileCalculationLeavesRuntimeHealthAndManaUntouched) {
+	ASSERT_TRUE(player->disciplines().addRank(1).success());
+	const auto health = player->getHealth();
+	const auto maximumHealth = player->getMaxHealth();
+	const auto mana = player->getMana();
+	const auto maximumMana = player->getMaxMana();
+
+	const auto profile = player->disciplines().profile(player->getLevel());
+	EXPECT_GT(stat(profile, DerivedStat::MaximumHealth), 0u);
+	EXPECT_EQ(health, player->getHealth());
+	EXPECT_EQ(maximumHealth, player->getMaxHealth());
+	EXPECT_EQ(mana, player->getMana());
+	EXPECT_EQ(maximumMana, player->getMaxMana());
 }
 
 TEST_F(PlayerDisciplinesTest, DerivesArmamentoAttributesFromLevelAndRank) {
