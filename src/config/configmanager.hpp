@@ -66,7 +66,7 @@ private:
 
 	std::string configFileLua = { "config.lua" };
 	std::atomic_bool loaded = false;
-	std::atomic<std::shared_ptr<const DerivedStatMultipliers>> derivedStatMultipliers { std::make_shared<const DerivedStatMultipliers>() };
+	std::shared_ptr<const DerivedStatMultipliers> derivedStatMultipliers { std::make_shared<const DerivedStatMultipliers>() };
 	std::mutex deferredCallbacksMutex;
 	std::vector<std::function<void()>> deferredCallbacks;
 	OTCFeatures enabledFeaturesOTC = {};

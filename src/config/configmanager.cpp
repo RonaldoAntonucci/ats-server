@@ -425,7 +425,7 @@ bool ConfigManager::load() {
 	loadStringConfig(L, LUA_API_DOCS_OUTPUT_DIRECTORY, "luaApiDocsOutputDirectory", "docs/lua-api");
 
 	loadLuaOTCFeatures(L);
-	derivedStatMultipliers.store(std::make_shared<const DerivedStatMultipliers>(*derivedStatCandidate), std::memory_order_release);
+	std::atomic_store_explicit(&derivedStatMultipliers, std::make_shared<const DerivedStatMultipliers>(*derivedStatCandidate), std::memory_order_release);
 
 	std::vector<std::function<void()>> callbacks;
 	{
@@ -456,7 +456,7 @@ bool ConfigManager::reload() {
 }
 
 std::shared_ptr<const DerivedStatMultipliers> ConfigManager::getDerivedStatMultipliers() const {
-	return derivedStatMultipliers.load(std::memory_order_acquire);
+	return std::atomic_load_explicit(&derivedStatMultipliers, std::memory_order_acquire);
 }
 
 std::optional<DerivedStatMultipliers> ConfigManager::loadDerivedStatMultipliers(lua_State* L) const {
