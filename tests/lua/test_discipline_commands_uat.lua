@@ -42,7 +42,16 @@ local hero = {
 	getDisciplineProfile = function()
 		local attributes = level * rank
 		return {
-			attributes = { ["for"] = attributes, des = attributes, vit = attributes, int = 0, von = 0 },
+			attributes = { pot = attributes, tec = attributes, vig = attributes, sin = 0, esp = 0 },
+			stats = {
+				physicalAttack = attributes,
+				magicalAttack = 0,
+				precision = attributes,
+				physicalDefense = attributes,
+				magicalDefense = 0,
+				maximumHealth = attributes * 5,
+				maximumMana = 0,
+			},
 			disciplines = rank == 0 and {} or { { id = 1, name = "Armamento", rank = rank } },
 		}
 	end,
@@ -77,11 +86,11 @@ assert(actions["!discipline"].registered and actions["!discipline"].group == "ga
 assert(actions["!discipline"].onSay(admin, "!discipline", "add, Hero, 1"))
 assert(rank == 1)
 assert(actions["!profile"].onSay(hero, "!profile", ""))
-assert(hero.popup == "Atributos\nFOR: 5\nDES: 5\nVIT: 5\nINT: 0\nVON: 0\n\nDisciplinas\n[1] Armamento — Rank 1")
+assert(hero.popup == "Atributos\nPOT: 5\nTEC: 5\nVIG: 5\nSIN: 0\nESP: 0\n\nStatus\nAtaque Físico: 5\nAtaque Mágico: 0\nPrecisão: 5\nDefesa Física: 5\nDefesa Mágica: 0\nVida Máxima: 25\nMana Máxima: 0\n\nDisciplinas\n[1] Armamento — Rank 1")
 
 assert(actions["!discipline"].onSay(admin, "!discipline", "remove, Hero, 1"))
 assert(rank == 0)
 assert(actions["!profile"].onSay(hero, "!profile", ""))
-assert(hero.popup == "Atributos\nFOR: 0\nDES: 0\nVIT: 0\nINT: 0\nVON: 0\n\nDisciplinas\nNenhuma disciplina adquirida.")
+assert(hero.popup == "Atributos\nPOT: 0\nTEC: 0\nVIG: 0\nSIN: 0\nESP: 0\n\nStatus\nAtaque Físico: 0\nAtaque Mágico: 0\nPrecisão: 0\nDefesa Física: 0\nDefesa Mágica: 0\nVida Máxima: 0\nMana Máxima: 0\n\nDisciplinas\nNenhuma disciplina adquirida.")
 
 print("\n1 passed, 0 failed")

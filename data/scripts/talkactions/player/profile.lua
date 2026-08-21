@@ -3,13 +3,23 @@ local profile = TalkAction("!profile")
 function profile.onSay(player, words, param)
 	local data = player:getDisciplineProfile()
 	local attributes = data.attributes
+	local stats = data.stats
 	local lines = {
 		"Atributos",
-		("FOR: %d"):format(attributes["for"]),
-		("DES: %d"):format(attributes.des),
-		("VIT: %d"):format(attributes.vit),
-		("INT: %d"):format(attributes.int),
-		("VON: %d"):format(attributes.von),
+		("POT: %d"):format(attributes.pot),
+		("TEC: %d"):format(attributes.tec),
+		("VIG: %d"):format(attributes.vig),
+		("SIN: %d"):format(attributes.sin),
+		("ESP: %d"):format(attributes.esp),
+		"",
+		"Status",
+		("Ataque Físico: %d"):format(stats.physicalAttack),
+		("Ataque Mágico: %d"):format(stats.magicalAttack),
+		("Precisão: %d"):format(stats.precision),
+		("Defesa Física: %d"):format(stats.physicalDefense),
+		("Defesa Mágica: %d"):format(stats.magicalDefense),
+		("Vida Máxima: %d"):format(stats.maximumHealth),
+		("Mana Máxima: %d"):format(stats.maximumMana),
 		"",
 		"Disciplinas",
 	}
