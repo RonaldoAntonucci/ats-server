@@ -215,6 +215,23 @@ TEST_F(DisciplineLuaBindingsTest, EmptyReadsReturnEveryAttributeAndStatAsZero) {
 	lua_pop(L.get(), 1);
 	callTableMethod("getDisciplines");
 	EXPECT_EQ(0u, lua_objlen(L.get(), -1));
+
+	for (const auto* method : {
+			 "getAttributePot",
+			 "getAttributeTec",
+			 "getAttributeVig",
+			 "getAttributeSin",
+			 "getAttributeEsp",
+			 "getStatPhysicalAttack",
+			 "getStatMagicalAttack",
+			 "getStatPrecision",
+			 "getStatPhysicalDefense",
+			 "getStatMagicalDefense",
+			 "getStatMaximumHealth",
+			 "getStatMaximumMana",
+		 }) {
+		EXPECT_EQ(0u, callScalarMethod(method)) << method;
+	}
 }
 
 TEST_F(DisciplineLuaBindingsTest, AggregateReadsReturnCalculatedValuesAndOrderedCurrentDisciplines) {
