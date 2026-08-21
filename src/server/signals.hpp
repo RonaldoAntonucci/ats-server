@@ -9,6 +9,8 @@
 
 #pragma once
 
+void reportConfigReload(bool succeeded);
+
 class Signals {
 	asio::signal_set set;
 

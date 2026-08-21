@@ -22,6 +22,15 @@
 #include "lua/scripts/lua_environment.hpp"
 #include "lib/di/container.hpp"
 
+void reportConfigReload(bool succeeded) {
+	if (!succeeded) {
+		g_logger().error("Failed to reload config");
+		return;
+	}
+
+	g_logger().info("Reloaded config");
+}
+
 Signals::Signals(asio::io_service &service) :
 	set(service) {
 	set.add(SIGINT);
@@ -114,8 +123,7 @@ void Signals::sighupHandler() {
 	// Dispatcher thread
 	g_logger().info("SIGHUP received, reloading config files...");
 
-	g_configManager().reload();
-	g_logger().info("Reloaded config");
+	reportConfigReload(g_configManager().reload());
 
 	g_game().raids.reload();
 	g_game().raids.startup();

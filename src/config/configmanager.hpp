@@ -10,6 +10,7 @@
 #pragma once
 
 #include "config_enums.hpp"
+#include "creatures/players/stats/character_stats.hpp"
 
 using ConfigValue = std::variant<std::string, int32_t, bool, float>;
 using OTCFeatures = std::vector<uint8_t>;
@@ -41,6 +42,7 @@ public:
 	[[nodiscard]] bool isLoaded() const {
 		return loaded.load(std::memory_order_acquire);
 	}
+	[[nodiscard]] std::shared_ptr<const DerivedStatMultipliers> getDerivedStatMultipliers() const;
 
 	[[nodiscard]] const std::string &getString(const ConfigKey_t &key, const std::source_location &location = std::source_location::current()) const;
 	[[nodiscard]] int32_t getNumber(const ConfigKey_t &key, const std::source_location &location = std::source_location::current()) const;
@@ -60,9 +62,11 @@ private:
 	int32_t loadIntConfig(lua_State* L, const ConfigKey_t &key, const char* identifier, const int32_t &defaultValue);
 	bool loadBoolConfig(lua_State* L, const ConfigKey_t &key, const char* identifier, const bool &defaultValue);
 	float loadFloatConfig(lua_State* L, const ConfigKey_t &key, const char* identifier, const float &defaultValue);
+	std::optional<DerivedStatMultipliers> loadDerivedStatMultipliers(lua_State* L) const;
 
 	std::string configFileLua = { "config.lua" };
 	std::atomic_bool loaded = false;
+	std::atomic<std::shared_ptr<const DerivedStatMultipliers>> derivedStatMultipliers { std::make_shared<const DerivedStatMultipliers>() };
 	std::mutex deferredCallbacksMutex;
 	std::vector<std::function<void()>> deferredCallbacks;
 	OTCFeatures enabledFeaturesOTC = {};

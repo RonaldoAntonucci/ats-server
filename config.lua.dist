@@ -499,6 +499,17 @@ experienceDisplayRates = true
 disableLegacyRaids = false
 disableMonsterArmor = false
 
+-- Character derived stats. Changes apply to the next profile calculation after config reload.
+characterPotToPhysicalAttackMultiplier = 1.0
+characterPotToPhysicalDefenseMultiplier = 0.3
+characterTecToPrecisionMultiplier = 1.0
+characterVigToMaximumHealthMultiplier = 5.0
+characterVigToPhysicalDefenseMultiplier = 0.7
+characterSinToMagicalAttackMultiplier = 1.0
+characterSinToMagicalDefenseMultiplier = 0.3
+characterEspToMaximumManaMultiplier = 5.0
+characterEspToMagicalDefenseMultiplier = 0.7
+
 -- Dispatcher fairness budgets. Changes apply after config reload.
 creatureWalkTasksPerPass = 128
 walkParallelTasksPerPass = 8
