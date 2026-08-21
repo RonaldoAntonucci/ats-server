@@ -7,6 +7,7 @@ add_subdirectory(components)
 add_subdirectory(condition)
 add_subdirectory(disciplines)
 add_subdirectory(imbuements)
+add_subdirectory(stats)
 
 target_sources(
     canary_ut

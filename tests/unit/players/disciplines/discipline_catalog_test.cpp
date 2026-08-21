@@ -71,9 +71,9 @@ TEST_F(DisciplineCatalogTest, LoadsArmamentoWithConfiguredContributions) {
 	const auto* armamento = catalog.get(1);
 	ASSERT_NE(nullptr, armamento);
 	EXPECT_EQ("Armamento", armamento->name);
-	EXPECT_EQ(1u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Strength)]);
-	EXPECT_EQ(1u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Dexterity)]);
-	EXPECT_EQ(1u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Vitality)]);
+	EXPECT_EQ(1u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Potency)]);
+	EXPECT_EQ(1u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Technique)]);
+	EXPECT_EQ(1u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Vigor)]);
 }
 
 TEST_F(DisciplineCatalogTest, DefaultsOmittedAttributesToZero) {
@@ -82,8 +82,8 @@ TEST_F(DisciplineCatalogTest, DefaultsOmittedAttributesToZero) {
 	ASSERT_TRUE(catalog.loadFromXml(file));
 	const auto* armamento = catalog.get(1);
 	ASSERT_NE(nullptr, armamento);
-	EXPECT_EQ(0u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Intelligence)]);
-	EXPECT_EQ(0u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Willpower)]);
+	EXPECT_EQ(0u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Attunement)]);
+	EXPECT_EQ(0u, armamento->perLevel[static_cast<size_t>(CharacterAttribute::Spirit)]);
 }
 
 TEST_F(DisciplineCatalogTest, PreservesAscendingNumericIdOrder) {

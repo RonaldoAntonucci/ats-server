@@ -208,11 +208,11 @@ TEST_F(PlayerDisciplinesTest, DerivesArmamentoAttributesFromLevelAndRank) {
 	EXPECT_EQ(1u, profile.disciplines.front().id);
 	EXPECT_EQ("Armamento", profile.disciplines.front().name);
 	EXPECT_EQ(2u, profile.disciplines.front().rank);
-	EXPECT_EQ(14u, attribute(profile, CharacterAttribute::Strength));
-	EXPECT_EQ(14u, attribute(profile, CharacterAttribute::Dexterity));
-	EXPECT_EQ(14u, attribute(profile, CharacterAttribute::Vitality));
-	EXPECT_EQ(0u, attribute(profile, CharacterAttribute::Intelligence));
-	EXPECT_EQ(0u, attribute(profile, CharacterAttribute::Willpower));
+	EXPECT_EQ(14u, attribute(profile, CharacterAttribute::Potency));
+	EXPECT_EQ(14u, attribute(profile, CharacterAttribute::Technique));
+	EXPECT_EQ(14u, attribute(profile, CharacterAttribute::Vigor));
+	EXPECT_EQ(0u, attribute(profile, CharacterAttribute::Attunement));
+	EXPECT_EQ(0u, attribute(profile, CharacterAttribute::Spirit));
 }
 
 TEST_F(PlayerDisciplinesTest, DerivesIdenticalProfilesForDifferentVocations) {
@@ -282,9 +282,9 @@ TEST_F(PlayerDisciplinesTest, ReflectsLevelChangesWithoutPersistingRanksAgain) {
 	ASSERT_TRUE(player->disciplines().addRank(1).success());
 	ASSERT_EQ(1u, kvMemory().writes());
 	player->setLevel(3);
-	EXPECT_EQ(3u, attribute(player->disciplines().profile(player->getLevel()), CharacterAttribute::Strength));
+	EXPECT_EQ(3u, attribute(player->disciplines().profile(player->getLevel()), CharacterAttribute::Potency));
 	player->setLevel(8);
-	EXPECT_EQ(8u, attribute(player->disciplines().profile(player->getLevel()), CharacterAttribute::Strength));
+	EXPECT_EQ(8u, attribute(player->disciplines().profile(player->getLevel()), CharacterAttribute::Potency));
 	EXPECT_EQ(1u, kvMemory().writes());
 }
 
@@ -295,7 +295,7 @@ TEST_F(PlayerDisciplinesTest, DerivesProfileFromRanksLoadedFromKv) {
 	player->setLevel(4);
 
 	const auto profile = player->disciplines().profile(player->getLevel());
-	EXPECT_EQ(8u, attribute(profile, CharacterAttribute::Strength));
+	EXPECT_EQ(8u, attribute(profile, CharacterAttribute::Potency));
 	ASSERT_EQ(1u, profile.disciplines.size());
 	EXPECT_EQ(2u, profile.disciplines.front().rank);
 }
@@ -314,9 +314,9 @@ TEST_F(PlayerDisciplinesTest, SumsMultipleDisciplinesInAscendingIdOrder) {
 	ASSERT_EQ(2u, profile.disciplines.size());
 	EXPECT_EQ(1u, profile.disciplines[0].id);
 	EXPECT_EQ(2u, profile.disciplines[1].id);
-	EXPECT_EQ(10u, attribute(profile, CharacterAttribute::Strength));
-	EXPECT_EQ(10u, attribute(profile, CharacterAttribute::Vitality));
-	EXPECT_EQ(5u, attribute(profile, CharacterAttribute::Willpower));
+	EXPECT_EQ(10u, attribute(profile, CharacterAttribute::Potency));
+	EXPECT_EQ(10u, attribute(profile, CharacterAttribute::Vigor));
+	EXPECT_EQ(5u, attribute(profile, CharacterAttribute::Spirit));
 }
 
 TEST_F(PlayerDisciplinesTest, UsesRenamedCatalogEntryWithoutChangingRanks) {
@@ -327,7 +327,7 @@ TEST_F(PlayerDisciplinesTest, UsesRenamedCatalogEntryWithoutChangingRanks) {
 	const auto profile = player->disciplines().profile(player->getLevel());
 	ASSERT_EQ(1u, profile.disciplines.size());
 	EXPECT_EQ("Novo Armamento", profile.disciplines.front().name);
-	EXPECT_EQ(9u, attribute(profile, CharacterAttribute::Strength));
+	EXPECT_EQ(9u, attribute(profile, CharacterAttribute::Potency));
 	EXPECT_EQ(1u, player->disciplines().ranks().at(1));
 }
 
@@ -337,8 +337,8 @@ TEST_F(PlayerDisciplinesTest, AppliesChangedCatalogContributionsWithoutChangingR
 	loadCatalog(R"xml(<disciplines><discipline id="1" name="Armamento"><attribute id="des" perLevel="4"/></discipline></disciplines>)xml");
 
 	const auto profile = player->disciplines().profile(player->getLevel());
-	EXPECT_EQ(0u, attribute(profile, CharacterAttribute::Strength));
-	EXPECT_EQ(8u, attribute(profile, CharacterAttribute::Dexterity));
+	EXPECT_EQ(0u, attribute(profile, CharacterAttribute::Potency));
+	EXPECT_EQ(8u, attribute(profile, CharacterAttribute::Technique));
 	EXPECT_EQ(1u, player->disciplines().ranks().at(1));
 }
 
@@ -359,8 +359,8 @@ TEST_F(PlayerDisciplinesTest, SaturatesOverflowingDerivedAttributeAndLogsIt) {
 													  });
 
 	const auto profile = player->disciplines().profile(std::numeric_limits<uint32_t>::max());
-	EXPECT_EQ(std::numeric_limits<uint64_t>::max(), attribute(profile, CharacterAttribute::Strength));
-	EXPECT_EQ(0u, attribute(profile, CharacterAttribute::Dexterity));
+	EXPECT_EQ(std::numeric_limits<uint64_t>::max(), attribute(profile, CharacterAttribute::Potency));
+	EXPECT_EQ(0u, attribute(profile, CharacterAttribute::Technique));
 	EXPECT_GE(logger().logCount(), 1u);
 }
 
@@ -375,6 +375,6 @@ TEST_F(PlayerDisciplinesTest, SaturatesAccumulatedDerivedAttributeAndLogsIt) {
 													  });
 
 	const auto profile = player->disciplines().profile(std::numeric_limits<uint32_t>::max());
-	EXPECT_EQ(std::numeric_limits<uint64_t>::max(), attribute(profile, CharacterAttribute::Strength));
+	EXPECT_EQ(std::numeric_limits<uint64_t>::max(), attribute(profile, CharacterAttribute::Potency));
 	EXPECT_GE(logger().logCount(), 1u);
 }

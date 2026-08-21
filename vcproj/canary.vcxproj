@@ -296,6 +296,7 @@
     <ClCompile Include="..\src\creatures\players\storages\storages.cpp" />
     <ClCompile Include="..\src\creatures\players\player.cpp" />
 	<ClCompile Include="..\src\creatures\players\disciplines\discipline.cpp" />
+    <ClCompile Include="..\src\creatures\players\stats\character_stats.cpp" />
     <ClCompile Include="..\src\creatures\players\vocations\vocation.cpp" />
     <ClCompile Include="..\src\creatures\players\components\wheel\wheel_gems.cpp" />
     <ClCompile Include="..\src\creatures\players\components\player_achievement.cpp" />
