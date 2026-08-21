@@ -22,13 +22,6 @@
 
 namespace {
 	constexpr std::string_view ranksKey = "ranks";
-	constexpr std::array<std::string_view, static_cast<size_t>(CharacterAttribute::Last)> attributeNames {
-		"for",
-		"des",
-		"vit",
-		"int",
-		"von",
-	};
 
 	[[nodiscard]] bool parsePositiveUint16(std::string_view value, uint16_t &parsed) {
 		const auto [ptr, error] = std::from_chars(value.data(), value.data() + value.size(), parsed);
@@ -66,7 +59,7 @@ DisciplineProfile PlayerDisciplines::profile(uint32_t level) const {
 			const auto perLevel = discipline->perLevel[index];
 			if (wouldOverflow(levelAndRank, perLevel) || wouldOverflow(profile.attributes[index], levelAndRank * perLevel)) {
 				profile.attributes[index] = std::numeric_limits<uint64_t>::max();
-				g_logger().error("[PlayerDisciplines] player={} attribute={} reason=derived attribute overflow", player.getName(), attributeNames[index]);
+				g_logger().error("[PlayerDisciplines] player={} attribute={} reason=derived attribute overflow", player.getName(), characterAttributeId(static_cast<CharacterAttribute>(index)));
 				continue;
 			}
 			profile.attributes[index] += levelAndRank * perLevel;

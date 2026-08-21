@@ -46,7 +46,7 @@ namespace {
 			return dynamic_cast<InMemoryLogger &>(injector.create<Logger &>());
 		}
 
-		void loadCatalog(std::string_view xml = R"xml(<disciplines><discipline id="1" name="Armamento"><attribute id="for" perLevel="1"/><attribute id="des" perLevel="1"/><attribute id="vit" perLevel="1"/></discipline></disciplines>)xml") {
+		void loadCatalog(std::string_view xml = R"xml(<disciplines><discipline id="1" name="Armamento"><attribute id="pot" perLevel="1"/><attribute id="tec" perLevel="1"/><attribute id="vig" perLevel="1"/><attribute id="sin" perLevel="0"/><attribute id="esp" perLevel="0"/></discipline></disciplines>)xml") {
 			const auto file = std::filesystem::temp_directory_path() / "canary-player-disciplines.xml";
 			std::ofstream output(file);
 			output << xml;
@@ -302,8 +302,8 @@ TEST_F(PlayerDisciplinesTest, DerivesProfileFromRanksLoadedFromKv) {
 
 TEST_F(PlayerDisciplinesTest, SumsMultipleDisciplinesInAscendingIdOrder) {
 	loadCatalog(R"xml(<disciplines>
-		<discipline id="2" name="Defesa"><attribute id="vit" perLevel="2"/><attribute id="von" perLevel="1"/></discipline>
-		<discipline id="1" name="Armamento"><attribute id="for" perLevel="1"/></discipline>
+		<discipline id="2" name="Defesa"><attribute id="vig" perLevel="2"/><attribute id="esp" perLevel="1"/></discipline>
+		<discipline id="1" name="Armamento"><attribute id="pot" perLevel="1"/></discipline>
 	</disciplines>)xml");
 	player->setLevel(5);
 	ASSERT_TRUE(player->disciplines().addRank(2).success());
@@ -322,7 +322,7 @@ TEST_F(PlayerDisciplinesTest, SumsMultipleDisciplinesInAscendingIdOrder) {
 TEST_F(PlayerDisciplinesTest, UsesRenamedCatalogEntryWithoutChangingRanks) {
 	ASSERT_TRUE(player->disciplines().addRank(1).success());
 	player->setLevel(3);
-	loadCatalog(R"xml(<disciplines><discipline id="1" name="Novo Armamento"><attribute id="for" perLevel="3"/></discipline></disciplines>)xml");
+	loadCatalog(R"xml(<disciplines><discipline id="1" name="Novo Armamento"><attribute id="pot" perLevel="3"/></discipline></disciplines>)xml");
 
 	const auto profile = player->disciplines().profile(player->getLevel());
 	ASSERT_EQ(1u, profile.disciplines.size());
@@ -334,7 +334,7 @@ TEST_F(PlayerDisciplinesTest, UsesRenamedCatalogEntryWithoutChangingRanks) {
 TEST_F(PlayerDisciplinesTest, AppliesChangedCatalogContributionsWithoutChangingRanks) {
 	ASSERT_TRUE(player->disciplines().addRank(1).success());
 	player->setLevel(2);
-	loadCatalog(R"xml(<disciplines><discipline id="1" name="Armamento"><attribute id="des" perLevel="4"/></discipline></disciplines>)xml");
+	loadCatalog(R"xml(<disciplines><discipline id="1" name="Armamento"><attribute id="tec" perLevel="4"/></discipline></disciplines>)xml");
 
 	const auto profile = player->disciplines().profile(player->getLevel());
 	EXPECT_EQ(0u, attribute(profile, CharacterAttribute::Potency));
@@ -353,7 +353,7 @@ TEST_F(PlayerDisciplinesTest, OmitsRanksMissingFromTheCurrentCatalog) {
 }
 
 TEST_F(PlayerDisciplinesTest, SaturatesOverflowingDerivedAttributeAndLogsIt) {
-	loadCatalog(R"xml(<disciplines><discipline id="1" name="Armamento"><attribute id="for" perLevel="4294967295"/></discipline></disciplines>)xml");
+	loadCatalog(R"xml(<disciplines><discipline id="1" name="Armamento"><attribute id="pot" perLevel="4294967295"/></discipline></disciplines>)xml");
 	player->kv()->scoped("disciplines")->set("ranks", ValueWrapper {
 														  { "1", ValueWrapper(ValueVariant { std::numeric_limits<IntType>::max() }) },
 													  });
@@ -366,8 +366,8 @@ TEST_F(PlayerDisciplinesTest, SaturatesOverflowingDerivedAttributeAndLogsIt) {
 
 TEST_F(PlayerDisciplinesTest, SaturatesAccumulatedDerivedAttributeAndLogsIt) {
 	loadCatalog(R"xml(<disciplines>
-		<discipline id="1" name="Armamento"><attribute id="for" perLevel="2"/></discipline>
-		<discipline id="2" name="Defesa"><attribute id="for" perLevel="2"/></discipline>
+		<discipline id="1" name="Armamento"><attribute id="pot" perLevel="2"/></discipline>
+		<discipline id="2" name="Defesa"><attribute id="pot" perLevel="2"/></discipline>
 	</disciplines>)xml");
 	player->kv()->scoped("disciplines")->set("ranks", ValueWrapper {
 														  { "1", ValueWrapper(ValueVariant { std::numeric_limits<IntType>::max() }) },
