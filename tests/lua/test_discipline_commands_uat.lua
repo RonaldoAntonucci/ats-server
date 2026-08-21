@@ -39,21 +39,24 @@ local hero = {
 		rank = rank - 1
 		return true, before, rank, "success"
 	end,
-	getDisciplineProfile = function()
+	getAttributes = function()
+		local attributes = level * rank
+		return { pot = attributes, tec = attributes, vig = attributes, sin = 0, esp = 0 }
+	end,
+	getStats = function()
 		local attributes = level * rank
 		return {
-			attributes = { pot = attributes, tec = attributes, vig = attributes, sin = 0, esp = 0 },
-			stats = {
-				physicalAttack = attributes,
-				magicalAttack = 0,
-				precision = attributes,
-				physicalDefense = attributes,
-				magicalDefense = 0,
-				maximumHealth = attributes * 5,
-				maximumMana = 0,
-			},
-			disciplines = rank == 0 and {} or { { id = 1, name = "Armamento", rank = rank } },
+			physicalAttack = attributes,
+			magicalAttack = 0,
+			precision = attributes,
+			physicalDefense = attributes,
+			magicalDefense = 0,
+			maximumHealth = attributes * 5,
+			maximumMana = 0,
 		}
+	end,
+	getDisciplines = function()
+		return rank == 0 and {} or { { id = 1, name = "Armamento", rank = rank } }
 	end,
 	sendTextMessage = function(_, kind, text)
 		table.insert(heroMessages, { kind, text })

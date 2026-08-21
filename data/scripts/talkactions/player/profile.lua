@@ -1,9 +1,9 @@
 local profile = TalkAction("!profile")
 
 function profile.onSay(player, words, param)
-	local data = player:getDisciplineProfile()
-	local attributes = data.attributes
-	local stats = data.stats
+	local attributes = player:getAttributes()
+	local stats = player:getStats()
+	local disciplines = player:getDisciplines()
 	local lines = {
 		"Atributos",
 		("POT: %d"):format(attributes.pot),
@@ -23,10 +23,10 @@ function profile.onSay(player, words, param)
 		"",
 		"Disciplinas",
 	}
-	if #data.disciplines == 0 then
+	if #disciplines == 0 then
 		table.insert(lines, "Nenhuma disciplina adquirida.")
 	else
-		for _, discipline in ipairs(data.disciplines) do
+		for _, discipline in ipairs(disciplines) do
 			table.insert(lines, ("[%d] %s — Rank %d"):format(discipline.id, discipline.name, discipline.rank))
 		end
 	end

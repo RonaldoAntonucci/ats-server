@@ -9,7 +9,6 @@
 
 #include "creatures/players/components/player_disciplines.hpp"
 
-#include "config/configmanager.hpp"
 #include "creatures/players/disciplines/discipline.hpp"
 #include "creatures/players/player.hpp"
 #include "kv/kv.hpp"
@@ -43,39 +42,30 @@ const std::map<uint16_t, uint32_t> &PlayerDisciplines::ranks() const {
 	return storedRanks;
 }
 
-DisciplineProfile PlayerDisciplines::profile(uint32_t level) const {
+DisciplineContributionSnapshot PlayerDisciplines::snapshot(uint32_t level) const {
 	std::scoped_lock lock(mutex);
 	loadLocked();
 
-	DisciplineProfile profile;
+	DisciplineContributionSnapshot snapshot;
 	for (const auto &[id, rank] : storedRanks) {
 		const auto* discipline = g_disciplines().get(id);
 		if (!discipline) {
 			continue;
 		}
 
-		profile.disciplines.emplace_back(id, discipline->name, rank);
-		for (size_t index = 0; index < profile.attributes.size(); ++index) {
+		snapshot.disciplines.emplace_back(id, discipline->name, rank, discipline->perLevel);
+		for (size_t index = 0; index < snapshot.attributes.size(); ++index) {
 			const auto levelAndRank = static_cast<uint64_t>(level) * rank;
 			const auto perLevel = discipline->perLevel[index];
-			if (wouldOverflow(levelAndRank, perLevel) || wouldOverflow(profile.attributes[index], levelAndRank * perLevel)) {
-				profile.attributes[index] = std::numeric_limits<uint64_t>::max();
+			if (wouldOverflow(levelAndRank, perLevel) || wouldOverflow(snapshot.attributes[index], levelAndRank * perLevel)) {
+				snapshot.attributes[index] = std::numeric_limits<uint64_t>::max();
 				g_logger().error("[PlayerDisciplines] player={} attribute={} reason=derived attribute overflow", player.getName(), characterAttributeId(static_cast<CharacterAttribute>(index)));
 				continue;
 			}
-			profile.attributes[index] += levelAndRank * perLevel;
+			snapshot.attributes[index] += levelAndRank * perLevel;
 		}
 	}
-
-	const auto multipliers = g_configManager().getDerivedStatMultipliers();
-	const auto calculation = calculateDerivedStats(profile.attributes, *multipliers);
-	profile.stats = calculation.totals;
-	for (size_t index = 0; index < calculation.saturated.size(); ++index) {
-		if (calculation.saturated[index]) {
-			g_logger().error("[CharacterDerivedStats] player={} status={} reason=derived status overflow", player.getName(), derivedStatId(static_cast<DerivedStat>(index)));
-		}
-	}
-	return profile;
+	return snapshot;
 }
 
 DisciplineMutation PlayerDisciplines::addRank(uint16_t id) {

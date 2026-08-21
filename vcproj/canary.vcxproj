@@ -304,6 +304,7 @@
     <ClCompile Include="..\src\creatures\players\animus_mastery\animus_mastery.cpp" />
     <ClCompile Include="..\src\creatures\players\components\player_badge.cpp" />
     <ClCompile Include="..\src\creatures\players\components\player_cyclopedia.cpp" />
+    <ClCompile Include="..\src\creatures\players\components\player_character_stats.cpp" />
     <ClCompile Include="..\src\creatures\players\components\player_disciplines.cpp" />
     <ClCompile Include="..\src\creatures\players\components\player_forge_history.cpp" />
     <ClCompile Include="..\src\creatures\players\components\player_storage.cpp" />

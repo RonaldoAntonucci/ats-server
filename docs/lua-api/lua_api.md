@@ -4155,9 +4155,79 @@ C++ Lua binding handlers and registration lines can override inferred signatures
 - Returns: `boolean|nil|Item`
 - Source: `src/lua/functions/creatures/player/player_functions.cpp`
 
-#### `Player:getDisciplineProfile()`
+#### `Player:getDisciplines()`
 
-- Returns: `{ attributes: { for: integer, des: integer, vit: integer, int: integer, von: integer }, disciplines: { id: integer, name: string, rank: integer }[] }|nil`
+- Returns: `{ id: integer, name: string, rank: integer, perLevel: { pot: integer, tec: integer, vig: integer, sin: integer, esp: integer } }[]|nil`
+- Source: `src/lua/functions/creatures/player/player_functions.cpp`
+
+#### `Player:getAttributes()`
+
+- Returns: `{ pot: integer, tec: integer, vig: integer, sin: integer, esp: integer }|nil`
+- Source: `src/lua/functions/creatures/player/player_functions.cpp`
+
+#### `Player:getStats()`
+
+- Returns: `{ physicalAttack: integer, magicalAttack: integer, precision: integer, physicalDefense: integer, magicalDefense: integer, maximumHealth: integer, maximumMana: integer }|nil`
+- Source: `src/lua/functions/creatures/player/player_functions.cpp`
+
+#### `Player:getAttributePot()`
+
+- Returns: `integer|nil`
+- Source: `src/lua/functions/creatures/player/player_functions.cpp`
+
+#### `Player:getAttributeTec()`
+
+- Returns: `integer|nil`
+- Source: `src/lua/functions/creatures/player/player_functions.cpp`
+
+#### `Player:getAttributeVig()`
+
+- Returns: `integer|nil`
+- Source: `src/lua/functions/creatures/player/player_functions.cpp`
+
+#### `Player:getAttributeSin()`
+
+- Returns: `integer|nil`
+- Source: `src/lua/functions/creatures/player/player_functions.cpp`
+
+#### `Player:getAttributeEsp()`
+
+- Returns: `integer|nil`
+- Source: `src/lua/functions/creatures/player/player_functions.cpp`
+
+#### `Player:getStatPhysicalAttack()`
+
+- Returns: `integer|nil`
+- Source: `src/lua/functions/creatures/player/player_functions.cpp`
+
+#### `Player:getStatMagicalAttack()`
+
+- Returns: `integer|nil`
+- Source: `src/lua/functions/creatures/player/player_functions.cpp`
+
+#### `Player:getStatPrecision()`
+
+- Returns: `integer|nil`
+- Source: `src/lua/functions/creatures/player/player_functions.cpp`
+
+#### `Player:getStatPhysicalDefense()`
+
+- Returns: `integer|nil`
+- Source: `src/lua/functions/creatures/player/player_functions.cpp`
+
+#### `Player:getStatMagicalDefense()`
+
+- Returns: `integer|nil`
+- Source: `src/lua/functions/creatures/player/player_functions.cpp`
+
+#### `Player:getStatMaximumHealth()`
+
+- Returns: `integer|nil`
+- Source: `src/lua/functions/creatures/player/player_functions.cpp`
+
+#### `Player:getStatMaximumMana()`
+
+- Returns: `integer|nil`
 - Source: `src/lua/functions/creatures/player/player_functions.cpp`
 
 #### `Player:getEffectiveSkillLevel(skillType: any)`

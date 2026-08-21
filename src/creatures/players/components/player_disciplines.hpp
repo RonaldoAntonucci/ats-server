@@ -37,16 +37,16 @@ struct DisciplineMutation {
 	}
 };
 
-struct DisciplineProfileEntry {
+struct DisciplineSnapshotEntry {
 	uint16_t id = 0;
 	std::string name;
 	uint32_t rank = 0;
+	AttributeContributions perLevel {};
 };
 
-struct DisciplineProfile {
+struct DisciplineContributionSnapshot {
 	AttributeTotals attributes {};
-	DerivedStatTotals stats {};
-	std::vector<DisciplineProfileEntry> disciplines;
+	std::vector<DisciplineSnapshotEntry> disciplines;
 };
 
 class Player;
@@ -56,7 +56,7 @@ public:
 	explicit PlayerDisciplines(Player &player);
 
 	[[nodiscard]] const std::map<uint16_t, uint32_t> &ranks() const;
-	[[nodiscard]] DisciplineProfile profile(uint32_t level) const;
+	[[nodiscard]] DisciplineContributionSnapshot snapshot(uint32_t level) const;
 	[[nodiscard]] DisciplineMutation addRank(uint16_t id);
 	[[nodiscard]] DisciplineMutation removeRank(uint16_t id);
 

@@ -36,11 +36,19 @@ end
 dofile("data/scripts/talkactions/player/profile.lua")
 
 local function playerWith(profile)
-	local state = { popup = nil, profileCalls = 0 }
+	local state = { popup = nil, attributesCalls = 0, statsCalls = 0, disciplinesCalls = 0 }
 	local player = {
-		getDisciplineProfile = function()
-			state.profileCalls = state.profileCalls + 1
-			return profile
+		getAttributes = function()
+			state.attributesCalls = state.attributesCalls + 1
+			return profile.attributes
+		end,
+		getStats = function()
+			state.statsCalls = state.statsCalls + 1
+			return profile.stats
+		end,
+		getDisciplines = function()
+			state.disciplinesCalls = state.disciplinesCalls + 1
+			return profile.disciplines
 		end,
 		popupFYI = function(_, text)
 			state.popup = text
@@ -176,7 +184,9 @@ test("reads only the executing player and ignores parameters", function()
 	end
 	local player, state = playerWith(emptyProfile)
 	registration.action.onSay(player, "!profile", "Outro Personagem")
-	assert_equal(1, state.profileCalls)
+	assert_equal(1, state.attributesCalls)
+	assert_equal(1, state.statsCalls)
+	assert_equal(1, state.disciplinesCalls)
 	assert_equal(emptyText, state.popup)
 end)
 
