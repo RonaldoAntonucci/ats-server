@@ -140,10 +140,34 @@ class LocalRuntimeComposeContractTests(unittest.TestCase):
 		config = self.render_compose(BASE_COMPOSE, LOCAL_COMPOSE)
 		self.assertIn("build", config["services"]["myaac"])
 
-	def test_merged_runtime_uses_only_named_canary_data_volume(self) -> None:
-		config = self.render_compose(BASE_COMPOSE, LOCAL_COMPOSE)
+	def test_merged_runtime_preserves_named_volume_and_live_source_mounts(self) -> None:
+		config = self.render_compose(
+			BASE_COMPOSE,
+			LOCAL_COMPOSE,
+			environment_overrides={"CANARY_DATA_PACK": "data-canary"},
+		)
 		self.assertEqual(
-			[{"type": "volume", "source": "server-data", "target": "/data", "volume": {}}],
+			[
+				{"type": "volume", "source": "server-data", "target": "/data", "volume": {}},
+				{
+					"type": "bind",
+					"source": str(REPO_ROOT / "config.lua.dist"),
+					"target": "/canary/config.project.lua",
+					"read_only": True,
+				},
+				{
+					"type": "bind",
+					"source": str(REPO_ROOT / "docker" / "data" / "start.sh"),
+					"target": "/canary/start.project.sh",
+					"read_only": True,
+				},
+				{"type": "bind", "source": str(REPO_ROOT / "data"), "target": "/canary/data"},
+				{
+					"type": "bind",
+					"source": str(REPO_ROOT / "data-canary"),
+					"target": "/canary/data-canary",
+				},
+			],
 			config["services"]["server"]["volumes"],
 		)
 
