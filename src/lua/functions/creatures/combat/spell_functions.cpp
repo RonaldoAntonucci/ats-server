@@ -891,7 +891,7 @@ int SpellFunctions::luaSpellHasTag(lua_State* L) {
 
 /***
  * @function Spell:getTags
- * @return string[]
+ * @return string[]|nil
  */
 int SpellFunctions::luaSpellGetTags(lua_State* L) {
 	const auto &spell = Lua::getUserdataShared<Spell>(L, 1, "Spell");

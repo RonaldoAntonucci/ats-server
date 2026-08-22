@@ -1236,6 +1236,9 @@ function Item:getActionId() end
 ---@return string|nil
 function Item:getArticle() end
 
+---@return integer|nil
+function Item:getAttack() end
+
 ---@param key string
 ---@return number|string|nil
 function Item:getAttribute(key) end
@@ -1255,6 +1258,9 @@ function Item:getCount() end
 ---@param key number|string
 ---@return nil
 function Item:getCustomAttribute(key) end
+
+---@return integer|nil
+function Item:getDefense() end
 
 ---@param distance number
 ---@return string|nil
@@ -4473,6 +4479,9 @@ function Spell:createOffensiveContext(player) end
 ---@return string reason
 function Spell:disciplineRequirement(disciplineId, minimumRank) end
 
+---@return string[]|nil
+function Spell:getTags() end
+
 ---@param primaryGroup? string
 ---@param secondaryGroup? string
 ---@return boolean|number|nil
@@ -4490,6 +4499,10 @@ function Spell:hasParams(value) end
 ---@param value? boolean
 ---@return boolean|nil
 function Spell:hasPlayerNameParam(value) end
+
+---@param tag string
+---@return boolean
+function Spell:hasTag(tag) end
 
 ---@param id? number
 ---@return boolean|number|nil
@@ -4601,6 +4614,10 @@ function Spell:setPzLocked(value) end
 ---@param soul? number
 ---@return boolean|number|nil
 function Spell:soul(soul) end
+
+---@param tag string
+---@return boolean success
+function Spell:tag(tag) end
 
 ---@param vocation any
 ---@return boolean|table|nil|Spell

@@ -1513,6 +1513,11 @@ C++ Lua binding handlers and registration lines can override inferred signatures
 - Returns: `string|nil`
 - Source: `src/lua/functions/items/item_functions.cpp`
 
+#### `Item:getAttack()`
+
+- Returns: `integer|nil`
+- Source: `src/lua/functions/items/item_functions.cpp`
+
 #### `Item:getAttribute(key: string)`
 
 - Returns: `number|string|nil`
@@ -1541,6 +1546,11 @@ C++ Lua binding handlers and registration lines can override inferred signatures
 #### `Item:getCustomAttribute(key: number|string)`
 
 - Returns: `nil`
+- Source: `src/lua/functions/items/item_functions.cpp`
+
+#### `Item:getDefense()`
+
+- Returns: `integer|nil`
 - Source: `src/lua/functions/items/item_functions.cpp`
 
 #### `Item:getDescription(distance: number)`
@@ -5633,6 +5643,11 @@ C++ Lua binding handlers and registration lines can override inferred signatures
 - Returns: `boolean success, string reason`
 - Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
 
+#### `Spell:getTags()`
+
+- Returns: `string[]|nil`
+- Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
+
 #### `Spell:group(primaryGroup?: string, secondaryGroup?: string)`
 
 - Returns: `boolean|number|nil`
@@ -5651,6 +5666,11 @@ C++ Lua binding handlers and registration lines can override inferred signatures
 #### `Spell:hasPlayerNameParam(value?: boolean)`
 
 - Returns: `boolean|nil`
+- Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
+
+#### `Spell:hasTag(tag: string)`
+
+- Returns: `boolean`
 - Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
 
 #### `Spell:id(id?: number)`
@@ -5786,6 +5806,11 @@ C++ Lua binding handlers and registration lines can override inferred signatures
 #### `Spell:soul(soul?: number)`
 
 - Returns: `boolean|number|nil`
+- Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
+
+#### `Spell:tag(tag: string)`
+
+- Returns: `boolean success`
 - Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
 
 #### `Spell:vocation(vocation: any)`
