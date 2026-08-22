@@ -97,6 +97,10 @@ local profiles = {
 		secondaryCombat = createCombat(CONST_ME_HITAREA, "onGetArmamentoAssaultSecondaryValues", nil, clubSecondaryArea),
 		range = 1,
 	},
+	shield = {
+		combat = createCombat(CONST_ME_BLOCKHIT, "onGetArmamentoAssaultPrimaryValues"),
+		range = 1,
+	},
 }
 
 local function classifyWeapon(item)
@@ -129,15 +133,49 @@ local function classifyWeapon(item)
 	return nil
 end
 
-local function selectWeapon(player)
+local function isShield(item)
+	if not item then
+		return false
+	end
+	local itemType = ItemType(item:getId())
+	return itemType and itemType:getWeaponType() == WEAPON_SHIELD
+end
+
+local function selectEquipment(player)
+	local handItems = {}
 	for _, slot in ipairs({ CONST_SLOT_LEFT, CONST_SLOT_RIGHT }) do
 		local item = player:getSlotItem(slot)
+		table.insert(handItems, item)
 		local profile, range = classifyWeapon(item)
 		if profile then
 			return item, profile, range
 		end
 	end
+	for _, item in ipairs(handItems) do
+		if isShield(item) then
+			return item, "shield", profiles.shield.range
+		end
+	end
 	return nil
+end
+
+local function attemptShieldKnockback(player, target)
+	if target:isRemoved() or target:getHealth() <= 0 then
+		return
+	end
+
+	local casterPosition = player:getPosition()
+	local targetPosition = target:getPosition()
+	local offsetX = targetPosition.x == casterPosition.x and 0 or targetPosition.x > casterPosition.x and 1 or -1
+	local offsetY = targetPosition.y == casterPosition.y and 0 or targetPosition.y > casterPosition.y and 1 or -1
+	if offsetX == 0 and offsetY == 0 then
+		return
+	end
+
+	local destination = Tile(Position(targetPosition.x + offsetX, targetPosition.y + offsetY, targetPosition.z))
+	if destination then
+		target:move(destination, 0)
+	end
 end
 
 local function executeProfileCombats(player, variant, profile, equipmentPower)
@@ -179,15 +217,20 @@ function spell.onCastSpell(player, variant)
 		return false
 	end
 
-	local weapon, profile, range = selectWeapon(player)
-	if not weapon then
+	local equipment, profile, range = selectEquipment(player)
+	if not equipment then
 		return false
 	end
 	if player:getPosition():getDistance(target:getPosition()) > range then
 		return false
 	end
 
-	return executeProfileCombats(player, variant, profiles[profile], weapon:getAttack())
+	local equipmentPower = profile == "shield" and equipment:getDefense() or equipment:getAttack()
+	local result = executeProfileCombats(player, variant, profiles[profile], equipmentPower)
+	if result and profile == "shield" then
+		attemptShieldKnockback(player, target)
+	end
+	return result
 end
 
 spell:name("Assault")

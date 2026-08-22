@@ -42,6 +42,7 @@ WEAPON_SWORD = 1
 WEAPON_DISTANCE = 2
 WEAPON_AXE = 3
 WEAPON_CLUB = 4
+WEAPON_SHIELD = 5
 AMMO_NONE = 0
 AMMO_ARROW = 1
 AMMO_BOLT = 2
@@ -280,7 +281,7 @@ test("does not declare legacy progression or learning gates", function()
 end)
 
 test("configures every Assault Combat for legacy armor but not shield blocking", function()
-	assert_equal(7, #combats)
+	assert_equal(8, #combats)
 	for _, combat in ipairs(combats) do
 		assert_equal(COMBAT_PHYSICALDAMAGE, combat.parameters[COMBAT_PARAM_TYPE])
 		assert_equal(1, combat.parameters[COMBAT_PARAM_BLOCKARMOR])

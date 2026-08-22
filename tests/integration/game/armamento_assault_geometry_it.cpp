@@ -40,6 +40,7 @@ namespace {
 				WEAPON_DISTANCE = 2
 				WEAPON_AXE = 3
 				WEAPON_CLUB = 4
+				WEAPON_SHIELD = 5
 				AMMO_NONE = 0
 				AMMO_ARROW = 1
 				AMMO_BOLT = 2

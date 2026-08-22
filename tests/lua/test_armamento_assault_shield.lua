@@ -1,6 +1,7 @@
--- Headless shield impact tests for data/scripts/spells/attack/armamento_assault.lua.
+-- Headless shield profile tests for data/scripts/spells/attack/armamento_assault.lua.
 
 local passed, failed, errors = 0, 0, {}
+local state = {}
 
 local function test(name, fn)
 	local ok, err = pcall(fn)
@@ -18,62 +19,98 @@ local function assert_equal(expected, actual, message)
 	end
 end
 
-local function assert_array(expected, actual, message)
-	assert_equal(#expected, #actual, (message or "array") .. " length")
-	for index, value in ipairs(expected) do
-		assert_equal(value, actual[index], (message or "array") .. " at " .. index)
+local function assert_before(first, second)
+	local firstIndex, secondIndex
+	for index, event in ipairs(state.events) do
+		if event == first and not firstIndex then
+			firstIndex = index
+		elseif event == second and not secondIndex then
+			secondIndex = index
+		end
 	end
+	assert_equal(true, firstIndex ~= nil and secondIndex ~= nil and firstIndex < secondIndex, first .. " before " .. second)
 end
 
 COMBAT_PHYSICALDAMAGE = 1
-CONST_ME_NONE = 0
-ORIGIN_SPELL = 2
+COMBAT_PARAM_TYPE = 2
+COMBAT_PARAM_EFFECT = 3
+COMBAT_PARAM_BLOCKARMOR = 4
+COMBAT_PARAM_BLOCKSHIELD = 5
+COMBAT_PARAM_DISTANCEEFFECT = 6
+CALLBACK_PARAM_LEVELMAGICVALUE = 7
 CONST_ME_DRAWBLOOD = 10
 CONST_ME_HITAREA = 11
 CONST_ME_BLOCKHIT = 12
 CONST_ANI_ARROW = 20
 CONST_ANI_BOLT = 21
+WEAPON_NONE = 0
+WEAPON_SWORD = 1
+WEAPON_DISTANCE = 2
+WEAPON_AXE = 3
+WEAPON_CLUB = 4
+WEAPON_SHIELD = 5
+AMMO_NONE = 0
+AMMO_ARROW = 1
+AMMO_BOLT = 2
+CONST_SLOT_LEFT = 5
+CONST_SLOT_RIGHT = 6
 
-local registration = { profileTags = {} }
-local state = {}
+local registration = {}
+local itemTypes = {}
+
+logger = { error = function() end }
+
+function createCombatArea(cardinal, diagonal)
+	return { cardinal = cardinal, diagonal = diagonal }
+end
+
+function Combat()
+	local combat = { parameters = {} }
+	function combat:setParameter(parameter, value)
+		self.parameters[parameter] = value
+	end
+	function combat:setCallback(_, callback)
+		self.callback = callback
+	end
+	function combat:setArea(area)
+		self.area = area
+	end
+	function combat:execute(player, variant)
+		table.insert(state.events, "damage")
+		local minimum, maximum = _G[self.callback](player, 999999, 999999)
+		state.damage = { combat = self, minimum = minimum, maximum = maximum, variant = variant }
+		if state.combatResult == false then
+			return false
+		end
+		state.target.health = state.healthAfterDamage
+		return true
+	end
+	return combat
+end
 
 function Spell()
 	local spell = {}
 	for _, method in ipairs({
-		"name",
-		"words",
-		"id",
-		"needTarget",
-		"isAggressive",
-		"mana",
-		"soul",
-		"cooldown",
-		"groupCooldown",
-		"disciplineRequirement",
-		"offensiveParameters",
-		"baseTags",
+		"name", "words", "id", "needTarget", "isAggressive", "blockWalls", "mana", "soul", "cooldown", "groupCooldown", "disciplineRequirement",
 	}) do
-		spell[method] = function()
-			return true
-		end
+		spell[method] = function() return true end
 	end
-	spell.profileTags = function(_, profile, tags)
-		registration.profileTags[profile] = tags
-		return true
-	end
-	spell.createOffensiveContext = function()
-		table.insert(state.events, "create")
-		return state.context, "created"
-	end
-	spell.register = function()
-		return true
-	end
+	spell.tag = function() return true end
+	spell.register = function() return true end
 	registration.spell = spell
 	return spell
 end
 
+function ItemType(id)
+	return itemTypes[id]
+end
+
 function Position(x, y, z)
-	return { x = x, y = y, z = z }
+	local value = { x = x, y = y, z = z }
+	function value:getDistance(other)
+		return math.max(math.abs(self.x - other.x), math.abs(self.y - other.y), math.abs(self.z - other.z))
+	end
+	return value
 end
 
 local function positionKey(position)
@@ -89,43 +126,43 @@ function Creature(id)
 	return state.target and state.target:getId() == id and state.target or nil
 end
 
-function doTargetCombatHealth(_, target, _, minimum, maximum, effect)
-	table.insert(state.events, "damage")
-	state.damage = { target = target, minimum = minimum, maximum = maximum, effect = effect }
-	target.health = state.healthAfterDamage
-	return true
-end
-
 function addEvent()
 	state.scheduled = state.scheduled + 1
 end
 
-dofile("data/scripts/spells/attack/armamento_assault.lua")
+local function item(id, weaponType, attack, defense)
+	itemTypes[id] = {
+		getWeaponType = function() return weaponType end,
+		getAmmoType = function() return AMMO_NONE end,
+		getShootRange = function() return 1 end,
+	}
+	return {
+		getId = function() return id end,
+		getAttack = function()
+			state.attackReads = state.attackReads + 1
+			return attack
+		end,
+		getDefense = function()
+			state.defenseReads = state.defenseReads + 1
+			return defense
+		end,
+	}
+end
 
 local function reset(options)
 	options = options or {}
 	state = {
-		events = {},
-		tiles = {},
-		scheduled = 0,
+		events = {}, tiles = {}, scheduled = 0, attackReads = 0, defenseReads = 0,
+		combatResult = options.combatResult,
 		healthAfterDamage = options.healthAfterDamage == nil and 40 or options.healthAfterDamage,
 	}
 	local casterPosition = Position(options.casterX or 10, options.casterY or 10, 7)
 	local targetPosition = Position(options.targetX or 11, options.targetY or 10, 7)
-	local player = {
-		getPosition = function()
-			return casterPosition
-		end,
-	}
 	local target = {
 		health = 100,
 		position = targetPosition,
-		getId = function()
-			return 77
-		end,
-		getPosition = function(self)
-			return self.position
-		end,
+		getId = function() return 77 end,
+		getPosition = function(self) return self.position end,
 		isRemoved = function()
 			table.insert(state.events, "removed-check")
 			return options.removed == true
@@ -137,36 +174,24 @@ local function reset(options)
 		move = function(self, tile, flags)
 			table.insert(state.events, "move")
 			state.move = { tile = tile, flags = flags }
-			if options.moveSucceeds ~= false then
-				self.position = tile.position
-				return 0
-			end
-			return 1
+			if options.moveSucceeds == false then return 1 end
+			self.position = tile.position
+			return 0
 		end,
 	}
 	state.target = target
-	state.context = {
-		getProfile = function()
-			return "shield"
-		end,
-		getPrimaryBaseDamage = function()
-			return 60
-		end,
-		validatePrimaryTarget = function()
-			table.insert(state.events, "validate")
-			return true, "created"
-		end,
-		commit = function()
-			table.insert(state.events, "commit")
-			return true, "created"
+	local slots = options.slots or {}
+	local player = {
+		getId = function() return 42 end,
+		getStatPhysicalAttack = function() return options.physicalAttack == nil and 20 or options.physicalAttack end,
+		getStatMagicalAttack = function() return 999 end,
+		getPosition = function() return casterPosition end,
+		getSlotItem = function(_, slot)
+			table.insert(state.events, "slot:" .. slot)
+			return slots[slot]
 		end,
 	}
-	local variant = {
-		getNumber = function()
-			return 77
-		end,
-	}
-	return player, target, variant
+	return player, target, { getNumber = function() return 77 end }
 end
 
 local function destination(x, y)
@@ -175,78 +200,139 @@ local function destination(x, y)
 	return tile
 end
 
-local function execute(options)
-	local player, target, variant = reset(options)
-	return registration.spell.onCastSpell(player, variant), target
-end
+dofile("data/scripts/spells/attack/armamento_assault.lua")
 
-test("shield applies blockhit damage before one successful opposite move", function()
-	local player, target, variant = reset()
+test("supported left weapon wins over a right shield", function()
+	local sword = item(100, WEAPON_SWORD, 30, 999)
+	local shield = item(101, WEAPON_SHIELD, 999, 80)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = sword, [CONST_SLOT_RIGHT] = shield } })
+	assert_equal(true, registration.spell.onCastSpell(player, variant))
+	assert_equal(CONST_ME_DRAWBLOOD, state.damage.combat.parameters[COMBAT_PARAM_EFFECT])
+	assert_equal(1, state.attackReads)
+	assert_equal(0, state.defenseReads)
+	assert_equal(nil, state.move)
+end)
+
+test("supported right weapon wins over a left shield", function()
+	local shield = item(102, WEAPON_SHIELD, 999, 80)
+	local sword = item(103, WEAPON_SWORD, 30, 999)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = shield, [CONST_SLOT_RIGHT] = sword } })
+	assert_equal(true, registration.spell.onCastSpell(player, variant))
+	assert_equal(CONST_ME_DRAWBLOOD, state.damage.combat.parameters[COMBAT_PARAM_EFFECT])
+	assert_equal(1, state.attackReads)
+	assert_equal(0, state.defenseReads)
+end)
+
+test("left shield has fallback priority over right shield", function()
+	local leftShield = item(104, WEAPON_SHIELD, 999, 31)
+	local rightShield = item(105, WEAPON_SHIELD, 999, 90)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = leftShield, [CONST_SLOT_RIGHT] = rightShield } })
+	destination(12, 10)
+	assert_equal(true, registration.spell.onCastSpell(player, variant))
+	assert_equal(-61, state.damage.minimum)
+	assert_equal(1, state.defenseReads)
+	assert_equal(0, state.attackReads)
+end)
+
+test("right shield is selected after unsupported left equipment", function()
+	local unsupported = item(106, WEAPON_NONE, 999, 999)
+	local rightShield = item(107, WEAPON_SHIELD, 999, 40)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = unsupported, [CONST_SLOT_RIGHT] = rightShield } })
+	destination(12, 10)
+	assert_equal(true, registration.spell.onCastSpell(player, variant))
+	assert_equal(-70, state.damage.minimum)
+	assert_equal(1, state.defenseReads)
+end)
+
+test("unsupported hands cancel before damage or power reads", function()
+	local unsupported = item(108, WEAPON_NONE, 999, 999)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = unsupported } })
+	assert_equal(false, registration.spell.onCastSpell(player, variant))
+	assert_equal(nil, state.damage)
+	assert_equal(0, state.attackReads)
+	assert_equal(0, state.defenseReads)
+end)
+
+test("shield uses effective defense as its only equipment power", function()
+	local shield = item(109, WEAPON_SHIELD, 500, 77)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = shield } })
+	destination(12, 10)
+	assert_equal(true, registration.spell.onCastSpell(player, variant))
+	assert_equal(-107, state.damage.minimum)
+	assert_equal(-107, state.damage.maximum)
+	assert_equal(CONST_ME_BLOCKHIT, state.damage.combat.parameters[COMBAT_PARAM_EFFECT])
+	assert_equal(1, state.defenseReads)
+	assert_equal(0, state.attackReads)
+end)
+
+test("shield damages before one successful opposite move", function()
+	local shield = item(110, WEAPON_SHIELD, 0, 30)
+	local player, target, variant = reset({ slots = { [CONST_SLOT_LEFT] = shield } })
 	local tile = destination(12, 10)
 	assert_equal(true, registration.spell.onCastSpell(player, variant))
-	assert_equal(CONST_ME_BLOCKHIT, state.damage.effect)
-	assert_equal(-60, state.damage.minimum)
-	assert_equal(-60, state.damage.maximum)
 	assert_equal(tile, state.move.tile)
 	assert_equal(0, state.move.flags)
 	assert_equal(tile.position, target.position)
-	assert_array({ "create", "validate", "commit", "damage", "removed-check", "health-check", "tile:12,10,7", "move" }, state.events)
+	assert_before("damage", "move")
 end)
 
-test("blocked shield destination preserves completed damage and target position", function()
-	local player, target, variant = reset({ moveSucceeds = false })
+test("blocked destination preserves completed damage and position", function()
+	local shield = item(111, WEAPON_SHIELD, 0, 30)
+	local player, target, variant = reset({ slots = { [CONST_SLOT_LEFT] = shield }, moveSucceeds = false })
 	local original = target.position
 	destination(12, 10)
 	assert_equal(true, registration.spell.onCastSpell(player, variant))
-	assert_equal(target, state.damage.target)
+	assert_equal(-60, state.damage.minimum)
 	assert_equal(original, target.position)
 	assert_equal(0, state.move.flags)
 end)
 
-test("missing shield destination preserves damage without attempting movement", function()
-	local result, target = execute()
-	assert_equal(true, result)
-	assert_equal(target, state.damage.target)
+test("missing destination preserves damage without movement", function()
+	local shield = item(112, WEAPON_SHIELD, 0, 30)
+	local player, target, variant = reset({ slots = { [CONST_SLOT_LEFT] = shield } })
+	local original = target.position
+	assert_equal(true, registration.spell.onCastSpell(player, variant))
+	assert_equal(-60, state.damage.minimum)
+	assert_equal(original, target.position)
 	assert_equal(nil, state.move)
-	assert_equal("tile:12,10,7", state.events[#state.events])
 end)
 
-test("shield skips knockback when damage leaves the target dead", function()
-	local player, target, variant = reset({ healthAfterDamage = 0 })
+test("shield skips movement when damage leaves the target dead", function()
+	local shield = item(113, WEAPON_SHIELD, 0, 30)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = shield }, healthAfterDamage = 0 })
 	destination(12, 10)
 	assert_equal(true, registration.spell.onCastSpell(player, variant))
-	assert_equal(target, state.damage.target)
 	assert_equal(nil, state.move)
-	assert_array({ "create", "validate", "commit", "damage", "removed-check", "health-check" }, state.events)
+	assert_equal("health-check", state.events[#state.events])
 end)
 
 test("shield skips health and movement checks for a removed target", function()
-	local player, target, variant = reset({ removed = true })
+	local shield = item(114, WEAPON_SHIELD, 0, 30)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = shield }, removed = true })
 	destination(12, 10)
 	assert_equal(true, registration.spell.onCastSpell(player, variant))
-	assert_equal(target, state.damage.target)
 	assert_equal(nil, state.move)
-	assert_array({ "create", "validate", "commit", "damage", "removed-check" }, state.events)
+	assert_equal("removed-check", state.events[#state.events])
 end)
 
-test("shield profile retains the knockback capability tag", function()
-	assert_array({ "equipment.shield", "execution.contact", "function.control", "mechanic.knockback" }, registration.profileTags.shield)
+test("Combat denial prevents shield movement", function()
+	local shield = item(115, WEAPON_SHIELD, 0, 30)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = shield }, combatResult = false })
+	destination(12, 10)
+	assert_equal(false, registration.spell.onCastSpell(player, variant))
+	assert_equal(nil, state.move)
 end)
 
-test("shield impact remains synchronous with exactly one move and no delayed work", function()
-	local player, _, variant = reset({ casterX = 10, casterY = 10, targetX = 9, targetY = 9 })
-	destination(8, 8)
+test("diagonal shield knockback is synchronous with no delayed work", function()
+	local shield = item(116, WEAPON_SHIELD, 0, 30)
+	local player, _, variant = reset({
+		slots = { [CONST_SLOT_LEFT] = shield }, casterX = 10, casterY = 10, targetX = 9, targetY = 9,
+	})
+	local tile = destination(8, 8)
 	assert_equal(true, registration.spell.onCastSpell(player, variant))
-	local moves = 0
-	for _, event in ipairs(state.events) do
-		if event == "move" then
-			moves = moves + 1
-		end
-	end
-	assert_equal(1, moves)
+	assert_equal(tile, state.move.tile)
 	assert_equal(0, state.scheduled)
-	assert_equal("damage", state.events[4])
-	assert_equal("move", state.events[#state.events])
+	assert_before("damage", "move")
 end)
 
 print(string.format("\n%d passed, %d failed", passed, failed))

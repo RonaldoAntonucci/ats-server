@@ -40,6 +40,7 @@ namespace {
 				WEAPON_DISTANCE = 2
 				WEAPON_AXE = 3
 				WEAPON_CLUB = 4
+				WEAPON_SHIELD = 5
 				AMMO_NONE = 0
 				AMMO_ARROW = 1
 				AMMO_BOLT = 2
@@ -126,7 +127,7 @@ TEST_F(ArmamentoAssaultScriptIntegrationTest, LoadsThroughInstantSpellAndConfigu
 		assert(state.cooldown[1] == 1000 and state.groupCooldown[1] == 0)
 		assert(state.disciplineRequirement[1] == 1 and state.disciplineRequirement[2] == 1)
 		assert(#state.tags == 6 and state.registered == true)
-		assert(#state.combats == 7)
+		assert(#state.combats == 8)
 		for _, combat in ipairs(state.combats) do
 			assert(combat.parameters[COMBAT_PARAM_TYPE] == COMBAT_PHYSICALDAMAGE)
 			assert(combat.parameters[COMBAT_PARAM_BLOCKARMOR] == 1)
