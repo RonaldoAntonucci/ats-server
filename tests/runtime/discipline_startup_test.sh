@@ -73,7 +73,11 @@ require_invalid_log() {
 }
 
 cd "${repo_root}"
-docker build --quiet --file docker/Dockerfile --target runtime --tag "${runtime_image}" --build-arg BUILD_JOBS="${BUILD_JOBS:-2}" .
+if ! docker image inspect "${runtime_image}" >/dev/null 2>&1; then
+	docker build --quiet --file docker/Dockerfile --target runtime --tag "${runtime_image}" --build-arg BUILD_JOBS="${BUILD_JOBS:-2}" .
+else
+	echo "Reusing existing runtime image: ${runtime_image}"
+fi
 
 "${compose[@]}" up -d db
 wait_for_database

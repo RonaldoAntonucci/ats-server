@@ -6,7 +6,7 @@ local profileEffects = {
 	club = { impact = CONST_ME_HITAREA },
 	bow = { impact = CONST_ME_HITAREA, distance = CONST_ANI_ARROW },
 	crossbow = { impact = CONST_ME_HITAREA, distance = CONST_ANI_BOLT },
-	shield = { impact = CONST_ME_NONE },
+	shield = { impact = CONST_ME_BLOCKHIT },
 }
 
 local function sign(value)
@@ -64,6 +64,21 @@ local function collectTargets(player, primaryTarget, context, profile)
 	return targets
 end
 
+local function attemptShieldKnockback(player, primaryTarget)
+	if primaryTarget:isRemoved() or primaryTarget:getHealth() <= 0 then
+		return
+	end
+
+	local casterPosition = player:getPosition()
+	local targetPosition = primaryTarget:getPosition()
+	local dx = sign(targetPosition.x - casterPosition.x)
+	local dy = sign(targetPosition.y - casterPosition.y)
+	local destination = Tile(Position(targetPosition.x + dx, targetPosition.y + dy, targetPosition.z))
+	if destination then
+		primaryTarget:move(destination, 0)
+	end
+end
+
 function spell.onCastSpell(player, variant)
 	local targetId = variant:getNumber()
 	if targetId == 0 then
@@ -101,6 +116,9 @@ function spell.onCastSpell(player, variant)
 	for index, target in ipairs(targets) do
 		local baseDamage = index == 1 and primaryBaseDamage or secondaryBaseDamage
 		doTargetCombatHealth(player, target, COMBAT_PHYSICALDAMAGE, -baseDamage, -baseDamage, effects.impact, ORIGIN_SPELL, nil, "Assault")
+	end
+	if profile == "shield" then
+		attemptShieldKnockback(player, primaryTarget)
 	end
 	return true
 end
