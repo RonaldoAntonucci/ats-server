@@ -789,6 +789,17 @@ const SpellRequirementSet &Spell::getRequirements() const {
 	return requirements;
 }
 
+const std::optional<OffensiveSpellDefinition> &Spell::getOffensiveDefinition() const {
+	return offensiveDefinition;
+}
+
+OffensiveSpellDefinition &Spell::getOrCreateOffensiveDefinition() {
+	if (!offensiveDefinition.has_value()) {
+		offensiveDefinition.emplace();
+	}
+	return *offensiveDefinition;
+}
+
 const std::string &Spell::getSeparator() const {
 	return m_separator;
 }

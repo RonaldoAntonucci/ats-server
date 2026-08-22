@@ -10,6 +10,7 @@
 #pragma once
 
 #include "lua/creature/actions.hpp"
+#include "creatures/combat/offensive_spell_definition.hpp"
 #include "creatures/combat/spell_requirements.hpp"
 #include "creatures/players/components/wheel/wheel_definitions.hpp"
 
@@ -256,6 +257,8 @@ public:
 	void setWords(std::string_view newWord);
 	[[nodiscard]] SpellRequirementDefinitionResult addDisciplineRequirement(uint16_t disciplineId, uint32_t minimumRank);
 	[[nodiscard]] const SpellRequirementSet &getRequirements() const;
+	[[nodiscard]] const std::optional<OffensiveSpellDefinition> &getOffensiveDefinition() const;
+	[[nodiscard]] OffensiveSpellDefinition &getOrCreateOffensiveDefinition();
 
 	[[nodiscard]] const std::string &getSeparator() const;
 
@@ -313,6 +316,7 @@ private:
 	std::string m_words;
 	std::string m_separator;
 	SpellRequirementSet requirements;
+	std::optional<OffensiveSpellDefinition> offensiveDefinition;
 
 	friend class SpellFunctions;
 };
