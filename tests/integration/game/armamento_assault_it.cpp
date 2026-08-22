@@ -39,6 +39,7 @@ namespace {
 				WEAPON_SWORD = 1
 				WEAPON_DISTANCE = 2
 				WEAPON_AXE = 3
+				WEAPON_CLUB = 4
 				AMMO_NONE = 0
 				AMMO_ARROW = 1
 				AMMO_BOLT = 2
@@ -50,6 +51,7 @@ namespace {
 					local combat = { parameters = {} }
 					function combat:setParameter(parameter, value) self.parameters[parameter] = value end
 					function combat:setCallback(parameter, callback) self.callbackParameter, self.callback = parameter, callback end
+					function combat:setArea(area) self.area = area end
 					function combat:execute(player, variant)
 						if state.combatError then error(state.combatError) end
 						local minimum, maximum = _G[self.callback](player, 999999, 999999)
@@ -59,6 +61,7 @@ namespace {
 					table.insert(state.combats, combat)
 					return combat
 				end
+				function createCombatArea(cardinal, diagonal) return {cardinal = cardinal, diagonal = diagonal} end
 				function Spell(kind)
 					state.kind = kind
 					local spell = {}
@@ -123,7 +126,7 @@ TEST_F(ArmamentoAssaultScriptIntegrationTest, LoadsThroughInstantSpellAndConfigu
 		assert(state.cooldown[1] == 1000 and state.groupCooldown[1] == 0)
 		assert(state.disciplineRequirement[1] == 1 and state.disciplineRequirement[2] == 1)
 		assert(#state.tags == 6 and state.registered == true)
-		assert(#state.combats == 3)
+		assert(#state.combats == 7)
 		for _, combat in ipairs(state.combats) do
 			assert(combat.parameters[COMBAT_PARAM_TYPE] == COMBAT_PHYSICALDAMAGE)
 			assert(combat.parameters[COMBAT_PARAM_BLOCKARMOR] == 1)
@@ -134,8 +137,8 @@ TEST_F(ArmamentoAssaultScriptIntegrationTest, LoadsThroughInstantSpellAndConfigu
 
 TEST_F(ArmamentoAssaultScriptIntegrationTest, UnsupportedEquipmentStopsBeforeCombat) {
 	run(R"lua(
-		local axe = weapon(100, WEAPON_AXE, AMMO_NONE, 90, 1)
-		assert(castWith(axe, nil, 1) == false)
+		local unsupported = weapon(100, 0, AMMO_NONE, 90, 1)
+		assert(castWith(unsupported, nil, 1) == false)
 		assert(state.execution == nil)
 	)lua");
 }

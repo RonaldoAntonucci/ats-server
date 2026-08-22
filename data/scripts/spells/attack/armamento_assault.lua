@@ -37,7 +37,16 @@ function onGetArmamentoAssaultPrimaryValues(player, level, magicLevel)
 	return -damage, -damage
 end
 
-local function createPrimaryCombat(effect, distanceEffect)
+function onGetArmamentoAssaultSecondaryValues(player, level, magicLevel)
+	local equipmentPower = pendingEquipmentPower[player:getId()]
+	if equipmentPower == nil then
+		return 0, 0
+	end
+	local damage = calculateDamage(player, equipmentPower, 0.5)
+	return -damage, -damage
+end
+
+local function createCombat(effect, callback, distanceEffect, area)
 	local combat = Combat()
 	combat:setParameter(COMBAT_PARAM_TYPE, COMBAT_PHYSICALDAMAGE)
 	combat:setParameter(COMBAT_PARAM_EFFECT, effect)
@@ -46,20 +55,47 @@ local function createPrimaryCombat(effect, distanceEffect)
 	if distanceEffect then
 		combat:setParameter(COMBAT_PARAM_DISTANCEEFFECT, distanceEffect)
 	end
-	combat:setCallback(CALLBACK_PARAM_LEVELMAGICVALUE, "onGetArmamentoAssaultPrimaryValues")
+	if area then
+		combat:setArea(area)
+	end
+	combat:setCallback(CALLBACK_PARAM_LEVELMAGICVALUE, callback)
 	return combat
 end
 
+local axeSecondaryArea = createCombatArea({
+	{ 1, 2, 1 },
+}, {
+	{ 0, 0, 1 },
+	{ 0, 2, 0 },
+	{ 1, 0, 0 },
+})
+
+local clubSecondaryArea = createCombatArea({
+	{ 0, 1, 0 },
+	{ 1, 2, 1 },
+	{ 0, 1, 0 },
+})
+
 local profiles = {
 	sword = {
-		combat = createPrimaryCombat(CONST_ME_DRAWBLOOD),
+		combat = createCombat(CONST_ME_DRAWBLOOD, "onGetArmamentoAssaultPrimaryValues"),
 		range = 1,
 	},
 	bow = {
-		combat = createPrimaryCombat(CONST_ME_HITAREA, CONST_ANI_ARROW),
+		combat = createCombat(CONST_ME_HITAREA, "onGetArmamentoAssaultPrimaryValues", CONST_ANI_ARROW),
 	},
 	crossbow = {
-		combat = createPrimaryCombat(CONST_ME_HITAREA, CONST_ANI_BOLT),
+		combat = createCombat(CONST_ME_HITAREA, "onGetArmamentoAssaultPrimaryValues", CONST_ANI_BOLT),
+	},
+	axe = {
+		combat = createCombat(CONST_ME_HITAREA, "onGetArmamentoAssaultPrimaryValues"),
+		secondaryCombat = createCombat(CONST_ME_HITAREA, "onGetArmamentoAssaultSecondaryValues", nil, axeSecondaryArea),
+		range = 1,
+	},
+	club = {
+		combat = createCombat(CONST_ME_HITAREA, "onGetArmamentoAssaultPrimaryValues"),
+		secondaryCombat = createCombat(CONST_ME_HITAREA, "onGetArmamentoAssaultSecondaryValues", nil, clubSecondaryArea),
+		range = 1,
 	},
 }
 
@@ -75,6 +111,10 @@ local function classifyWeapon(item)
 	local weaponType = itemType:getWeaponType()
 	if weaponType == WEAPON_SWORD then
 		return "sword", profiles.sword.range
+	elseif weaponType == WEAPON_AXE then
+		return "axe", profiles.axe.range
+	elseif weaponType == WEAPON_CLUB then
+		return "club", profiles.club.range
 	end
 	if weaponType ~= WEAPON_DISTANCE then
 		return nil
@@ -100,16 +140,31 @@ local function selectWeapon(player)
 	return nil
 end
 
-local function executePrimaryCombat(player, variant, combat, equipmentPower)
+local function executeProfileCombats(player, variant, profile, equipmentPower)
 	local playerId = player:getId()
 	pendingEquipmentPower[playerId] = equipmentPower
-	local succeeded, result = pcall(combat.execute, combat, player, variant)
-	pendingEquipmentPower[playerId] = nil
-	if not succeeded then
-		logger.error("[ArmamentoAssault] Combat execution failed: {}", result)
+	local primarySucceeded, primaryResult = pcall(profile.combat.execute, profile.combat, player, variant)
+	if not primarySucceeded then
+		pendingEquipmentPower[playerId] = nil
+		logger.error("[ArmamentoAssault] Combat execution failed: {}", primaryResult)
 		return false
 	end
-	return result
+	if not primaryResult then
+		pendingEquipmentPower[playerId] = nil
+		return false
+	end
+
+	if profile.secondaryCombat then
+		local secondarySucceeded, secondaryError = pcall(profile.secondaryCombat.execute, profile.secondaryCombat, player, variant)
+		pendingEquipmentPower[playerId] = nil
+		if not secondarySucceeded then
+			logger.error("[ArmamentoAssault] Secondary Combat execution failed: {}", secondaryError)
+		end
+		return true
+	end
+
+	pendingEquipmentPower[playerId] = nil
+	return true
 end
 
 local spell = Spell("instant")
@@ -132,7 +187,7 @@ function spell.onCastSpell(player, variant)
 		return false
 	end
 
-	return executePrimaryCombat(player, variant, profiles[profile].combat, weapon:getAttack())
+	return executeProfileCombats(player, variant, profiles[profile], weapon:getAttack())
 end
 
 spell:name("Assault")

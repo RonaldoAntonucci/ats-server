@@ -41,6 +41,7 @@ WEAPON_NONE = 0
 WEAPON_SWORD = 1
 WEAPON_DISTANCE = 2
 WEAPON_AXE = 3
+WEAPON_CLUB = 4
 AMMO_NONE = 0
 AMMO_ARROW = 1
 AMMO_BOLT = 2
@@ -68,6 +69,9 @@ function Combat()
 		self.callbackParameter = parameter
 		self.callback = callback
 	end
+	function combat:setArea(area)
+		self.area = area
+	end
 	function combat:execute(player, variant)
 		table.insert(state.events, "combat")
 		if state.combatError then
@@ -85,6 +89,10 @@ function Combat()
 	end
 	table.insert(combats, combat)
 	return combat
+end
+
+function createCombatArea(cardinal, diagonal)
+	return { cardinal = cardinal, diagonal = diagonal }
 end
 
 function Spell(kind)
@@ -217,6 +225,15 @@ local function findCombat(distanceEffect)
 	return nil
 end
 
+local function findCombatByEffect(effect)
+	for _, combat in ipairs(combats) do
+		if combat.parameters[COMBAT_PARAM_EFFECT] == effect then
+			return combat
+		end
+	end
+	return nil
+end
+
 dofile("data/scripts/spells/attack/armamento_assault.lua")
 
 test("registers Assault with stable identity", function()
@@ -262,19 +279,19 @@ test("does not declare legacy progression or learning gates", function()
 	end
 end)
 
-test("configures every primary Combat for legacy armor but not shield blocking", function()
-	assert_equal(3, #combats)
+test("configures every Assault Combat for legacy armor but not shield blocking", function()
+	assert_equal(7, #combats)
 	for _, combat in ipairs(combats) do
 		assert_equal(COMBAT_PHYSICALDAMAGE, combat.parameters[COMBAT_PARAM_TYPE])
 		assert_equal(1, combat.parameters[COMBAT_PARAM_BLOCKARMOR])
 		assert_equal(0, combat.parameters[COMBAT_PARAM_BLOCKSHIELD])
 		assert_equal(CALLBACK_PARAM_LEVELMAGICVALUE, combat.callbackParameter)
-		assert_equal("onGetArmamentoAssaultPrimaryValues", combat.callback)
+		assert_equal(true, combat.callback == "onGetArmamentoAssaultPrimaryValues" or combat.callback == "onGetArmamentoAssaultSecondaryValues")
 	end
 end)
 
 test("configures sword bow and crossbow effects on Combat", function()
-	assert_equal(CONST_ME_DRAWBLOOD, findCombat(nil).parameters[COMBAT_PARAM_EFFECT])
+	assert_equal(CONST_ME_DRAWBLOOD, findCombatByEffect(CONST_ME_DRAWBLOOD).parameters[COMBAT_PARAM_EFFECT])
 	assert_equal(CONST_ME_HITAREA, findCombat(CONST_ANI_ARROW).parameters[COMBAT_PARAM_EFFECT])
 	assert_equal(CONST_ME_HITAREA, findCombat(CONST_ANI_BOLT).parameters[COMBAT_PARAM_EFFECT])
 end)
@@ -293,8 +310,8 @@ test("rejects an unresolved target before equipment lookup", function()
 end)
 
 test("rejects unsupported hand equipment before Combat", function()
-	local axe = item(100, WEAPON_AXE, AMMO_NONE, 90, 1)
-	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = axe } })
+	local unsupported = item(100, WEAPON_NONE, AMMO_NONE, 90, 1)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = unsupported } })
 	assert_equal(false, registration.spell.onCastSpell(player, variant))
 	assert_equal(0, #state.executions)
 	assert_equal(0, state.attackReads)
@@ -311,9 +328,9 @@ test("selects the supported left weapon before the right", function()
 end)
 
 test("falls through unsupported left equipment to a supported right weapon", function()
-	local axe = item(103, WEAPON_AXE, AMMO_NONE, 90, 1)
+	local unsupported = item(103, WEAPON_NONE, AMMO_NONE, 90, 1)
 	local bow = item(104, WEAPON_DISTANCE, AMMO_ARROW, 30, 6)
-	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = axe, [CONST_SLOT_RIGHT] = bow }, targetX = 6 })
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = unsupported, [CONST_SLOT_RIGHT] = bow }, targetX = 6 })
 	assert_equal(true, registration.spell.onCastSpell(player, variant))
 	assert_array({ "slot:" .. CONST_SLOT_LEFT, "slot:" .. CONST_SLOT_RIGHT, "combat" }, state.events)
 	assert_equal(CONST_ANI_ARROW, state.executions[1].combat.parameters[COMBAT_PARAM_DISTANCEEFFECT])
