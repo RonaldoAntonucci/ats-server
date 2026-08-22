@@ -807,17 +807,6 @@ const std::vector<std::string> &Spell::getTags() const {
 	return tags;
 }
 
-const std::optional<OffensiveSpellDefinition> &Spell::getOffensiveDefinition() const {
-	return offensiveDefinition;
-}
-
-OffensiveSpellDefinition &Spell::getOrCreateOffensiveDefinition() {
-	if (!offensiveDefinition.has_value()) {
-		offensiveDefinition.emplace();
-	}
-	return *offensiveDefinition;
-}
-
 const std::string &Spell::getSeparator() const {
 	return m_separator;
 }

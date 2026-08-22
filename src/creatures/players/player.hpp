@@ -47,7 +47,6 @@ class Imbuement;
 class PreySlot;
 class TaskHuntingSlot;
 class Spell;
-class OffensiveEquipmentResolver;
 class Spectators;
 class Account;
 class RewardChest;
@@ -1591,7 +1590,6 @@ public:
 	bool isFoodActive(uint16_t itemId) const;
 
 private:
-	friend class OffensiveEquipmentResolver;
 	friend class PlayerLock;
 	std::mutex mutex;
 

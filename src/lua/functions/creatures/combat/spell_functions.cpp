@@ -9,7 +9,6 @@
 
 #include "lua/functions/creatures/combat/spell_functions.hpp"
 
-#include "creatures/combat/offensive_cast_context.hpp"
 #include "creatures/combat/spells.hpp"
 #include "creatures/players/player.hpp"
 #include "creatures/players/vocations/vocation.hpp"
@@ -36,98 +35,9 @@ namespace {
 		return "invalid_definition";
 	}
 
-	std::string_view offensiveUpdateReason(OffensiveDefinitionUpdateResult result) {
-		switch (result) {
-			case OffensiveDefinitionUpdateResult::Updated:
-				return "updated";
-			case OffensiveDefinitionUpdateResult::WrongType:
-				return "wrong_type";
-			case OffensiveDefinitionUpdateResult::NonFinite:
-				return "non_finite";
-			case OffensiveDefinitionUpdateResult::BelowMinimum:
-				return "below_minimum";
-			case OffensiveDefinitionUpdateResult::AboveMaximum:
-				return "above_maximum";
-			case OffensiveDefinitionUpdateResult::NotInteger:
-				return "not_integer";
-			case OffensiveDefinitionUpdateResult::Frozen:
-				return "frozen";
-		}
-		return "invalid_definition";
-	}
-
-	std::optional<OffensiveProfile> parseOffensiveProfile(std::string_view profile) {
-		if (profile == "sword") {
-			return OffensiveProfile::Sword;
-		}
-		if (profile == "axe") {
-			return OffensiveProfile::Axe;
-		}
-		if (profile == "club") {
-			return OffensiveProfile::Club;
-		}
-		if (profile == "bow") {
-			return OffensiveProfile::Bow;
-		}
-		if (profile == "crossbow") {
-			return OffensiveProfile::Crossbow;
-		}
-		if (profile == "shield") {
-			return OffensiveProfile::Shield;
-		}
-		return std::nullopt;
-	}
-
-	std::string_view offensiveProfileName(OffensiveProfile profile) {
-		switch (profile) {
-			case OffensiveProfile::Sword:
-				return "sword";
-			case OffensiveProfile::Axe:
-				return "axe";
-			case OffensiveProfile::Club:
-				return "club";
-			case OffensiveProfile::Bow:
-				return "bow";
-			case OffensiveProfile::Crossbow:
-				return "crossbow";
-			case OffensiveProfile::Shield:
-				return "shield";
-		}
-		return "";
-	}
-
 	void pushBooleanReason(lua_State* L, bool success, std::string_view reason) {
 		Lua::pushBoolean(L, success);
 		Lua::pushString(L, std::string(reason));
-	}
-
-	std::optional<std::vector<std::string>> readTagNames(lua_State* L, int32_t index) {
-		if (!Lua::isTable(L, index)) {
-			return std::nullopt;
-		}
-		const auto absoluteIndex = index > 0 ? index : lua_gettop(L) + index + 1;
-		const auto count = lua_objlen(L, absoluteIndex);
-		std::vector<std::string> names;
-		names.reserve(count);
-		for (size_t entry = 1; entry <= count; ++entry) {
-			lua_rawgeti(L, absoluteIndex, static_cast<int>(entry));
-			if (lua_type(L, -1) != LUA_TSTRING) {
-				lua_pop(L, 1);
-				return std::nullopt;
-			}
-			names.emplace_back(Lua::getString(L, -1));
-			lua_pop(L, 1);
-		}
-		return names;
-	}
-
-	SpellTagSetBuildResult buildTags(const std::vector<std::string> &names) {
-		std::vector<std::string_view> views;
-		views.reserve(names.size());
-		for (const auto &name : names) {
-			views.emplace_back(name);
-		}
-		return buildSpellTagSet(views);
 	}
 
 }
@@ -135,7 +45,6 @@ namespace {
 void SpellFunctions::init(lua_State* L) {
 	Lua::registerSharedClass<Spell>(L, "", SpellFunctions::luaSpellCreate);
 	Lua::registerMetaMethod(L, "Spell", "__eq", Lua::luaUserdataCompare);
-	Lua::registerSharedClass<OffensiveCastContext>(L, "");
 
 	/***
 	 * @function Spell:onCastSpell
@@ -170,21 +79,6 @@ void SpellFunctions::init(lua_State* L) {
 	Lua::registerMethod(L, "Spell", "tag", SpellFunctions::luaSpellTag);
 	Lua::registerMethod(L, "Spell", "hasTag", SpellFunctions::luaSpellHasTag);
 	Lua::registerMethod(L, "Spell", "getTags", SpellFunctions::luaSpellGetTags);
-	Lua::registerMethod(L, "Spell", "offensiveParameters", SpellFunctions::luaSpellOffensiveParameters);
-	Lua::registerMethod(L, "Spell", "baseTags", SpellFunctions::luaSpellBaseTags);
-	Lua::registerMethod(L, "Spell", "profileTags", SpellFunctions::luaSpellProfileTags);
-	Lua::registerMethod(L, "Spell", "createOffensiveContext", SpellFunctions::luaSpellCreateOffensiveContext);
-
-	Lua::registerMethod(L, "OffensiveCastContext", "getProfile", SpellFunctions::luaOffensiveContextProfile);
-	Lua::registerMethod(L, "OffensiveCastContext", "getEquipmentPower", SpellFunctions::luaOffensiveContextEquipmentPower);
-	Lua::registerMethod(L, "OffensiveCastContext", "getRange", SpellFunctions::luaOffensiveContextRange);
-	Lua::registerMethod(L, "OffensiveCastContext", "requiresAmmunition", SpellFunctions::luaOffensiveContextRequiresAmmunition);
-	Lua::registerMethod(L, "OffensiveCastContext", "getTags", SpellFunctions::luaOffensiveContextTags);
-	Lua::registerMethod(L, "OffensiveCastContext", "getPrimaryBaseDamage", SpellFunctions::luaOffensiveContextPrimaryBaseDamage);
-	Lua::registerMethod(L, "OffensiveCastContext", "getSecondaryBaseDamage", SpellFunctions::luaOffensiveContextSecondaryBaseDamage);
-	Lua::registerMethod(L, "OffensiveCastContext", "validatePrimaryTarget", SpellFunctions::luaOffensiveContextValidatePrimaryTarget);
-	Lua::registerMethod(L, "OffensiveCastContext", "canAffect", SpellFunctions::luaOffensiveContextCanAffect);
-	Lua::registerMethod(L, "OffensiveCastContext", "commit", SpellFunctions::luaOffensiveContextCommit);
 
 	Lua::registerMethod(L, "Spell", "castSound", SpellFunctions::luaSpellCastSound);
 	Lua::registerMethod(L, "Spell", "impactSound", SpellFunctions::luaSpellImpactSound);
@@ -307,12 +201,6 @@ int SpellFunctions::luaSpellRegister(lua_State* L) {
 		Lua::pushBoolean(L, false);
 		return 1;
 	}
-	if (spell->getOffensiveDefinition().has_value() && !spell->getOffensiveDefinition()->valid()) {
-		g_logger().error("[SpellFunctions::luaSpellRegister] spell={} reason=invalid_offensive_definition", spell->getName());
-		Lua::pushBoolean(L, false);
-		return 1;
-	}
-
 	if (spell->spellType == SPELL_INSTANT) {
 		const auto &spellBase = Lua::getUserdataShared<Spell>(L, 1, "Spell");
 		const auto &instant = std::static_pointer_cast<InstantSpell>(spellBase);
@@ -321,9 +209,6 @@ int SpellFunctions::luaSpellRegister(lua_State* L) {
 			return 1;
 		}
 		const auto registered = g_spells().registerInstantLuaEvent(instant);
-		if (registered && spell->getOffensiveDefinition().has_value()) {
-			spell->getOrCreateOffensiveDefinition().freeze();
-		}
 		Lua::pushBoolean(L, registered);
 	} else if (spell->spellType == SPELL_RUNE) {
 		const auto &spellBase = Lua::getUserdataShared<Spell>(L, 1, "Spell");
@@ -344,9 +229,6 @@ int SpellFunctions::luaSpellRegister(lua_State* L) {
 			return 1;
 		}
 		const auto registered = g_spells().registerRuneLuaEvent(rune);
-		if (registered && spell->getOffensiveDefinition().has_value()) {
-			spell->getOrCreateOffensiveDefinition().freeze();
-		}
 		Lua::pushBoolean(L, registered);
 	}
 	return 1;
@@ -907,288 +789,6 @@ int SpellFunctions::luaSpellGetTags(lua_State* L) {
 		lua_rawseti(L, -2, index++);
 	}
 	return 1;
-}
-
-/***
- * @function Spell:offensiveParameters
- * @param parameters table
- * @return boolean success
- * @return string reason
- */
-int SpellFunctions::luaSpellOffensiveParameters(lua_State* L) {
-	const auto &spell = Lua::getUserdataShared<Spell>(L, 1, "Spell");
-	if (!spell || !Lua::isTable(L, 2)) {
-		pushBooleanReason(L, false, "wrong_type");
-		return 2;
-	}
-	auto &definition = spell->getOrCreateOffensiveDefinition();
-	auto candidate = definition;
-	const std::array fields {
-		std::pair { "basePower", OffensiveParameterField::BasePower },
-		std::pair { "physicalCoefficient", OffensiveParameterField::PhysicalCoefficient },
-		std::pair { "magicalCoefficient", OffensiveParameterField::MagicalCoefficient },
-		std::pair { "equipmentCoefficient", OffensiveParameterField::EquipmentCoefficient },
-		std::pair { "secondaryMultiplier", OffensiveParameterField::SecondaryMultiplier },
-		std::pair { "cooldownMilliseconds", OffensiveParameterField::CooldownMilliseconds },
-	};
-	for (const auto &[name, field] : fields) {
-		lua_getfield(L, 2, name);
-		OffensiveDefinitionUpdateResult result;
-		if (!Lua::isNumber(L, -1)) {
-			result = candidate.setParameter(field, std::string {}, spell->getName());
-		} else {
-			result = candidate.setParameter(field, Lua::getNumber<double>(L, -1), spell->getName());
-		}
-		lua_pop(L, 1);
-		if (result != OffensiveDefinitionUpdateResult::Updated) {
-			definition.invalidate();
-			pushBooleanReason(L, false, offensiveUpdateReason(result));
-			return 2;
-		}
-	}
-	definition = std::move(candidate);
-	spell->setCooldown(definition.parameters().cooldownMilliseconds);
-	pushBooleanReason(L, true, "updated");
-	return 2;
-}
-
-/***
- * @function Spell:baseTags
- * @param tags string[]
- * @return boolean success
- * @return string reason
- */
-int SpellFunctions::luaSpellBaseTags(lua_State* L) {
-	const auto &spell = Lua::getUserdataShared<Spell>(L, 1, "Spell");
-	const auto names = readTagNames(L, 2);
-	if (!spell || !names.has_value()) {
-		pushBooleanReason(L, false, "wrong_type");
-		return 2;
-	}
-	auto &definition = spell->getOrCreateOffensiveDefinition();
-	auto result = buildTags(*names);
-	if (!result.success()) {
-		definition.invalidate();
-		g_logger().error("[SpellFunctions::luaSpellBaseTags] spell={} tag={} reason={}", spell->getName(), result.rejectedTag, spellTagValidationReason(result.result));
-		pushBooleanReason(L, false, spellTagValidationReason(result.result));
-		return 2;
-	}
-	const auto update = definition.setBaseTags(std::move(*result.tags));
-	pushBooleanReason(L, update == OffensiveDefinitionUpdateResult::Updated, offensiveUpdateReason(update));
-	return 2;
-}
-
-/***
- * @function Spell:profileTags
- * @param profile string
- * @param tags string[]
- * @return boolean success
- * @return string reason
- */
-int SpellFunctions::luaSpellProfileTags(lua_State* L) {
-	const auto &spell = Lua::getUserdataShared<Spell>(L, 1, "Spell");
-	if (!spell || lua_type(L, 2) != LUA_TSTRING) {
-		pushBooleanReason(L, false, "wrong_type");
-		return 2;
-	}
-	const auto profileName = Lua::getString(L, 2);
-	const auto profile = parseOffensiveProfile(profileName);
-	if (!profile.has_value()) {
-		g_logger().error("[SpellFunctions::luaSpellProfileTags] spell={} profile={} reason=invalid_profile", spell->getName(), profileName);
-		spell->getOrCreateOffensiveDefinition().invalidate();
-		pushBooleanReason(L, false, "invalid_profile");
-		return 2;
-	}
-	const auto names = readTagNames(L, 3);
-	if (!names.has_value()) {
-		pushBooleanReason(L, false, "wrong_type");
-		return 2;
-	}
-	auto &definition = spell->getOrCreateOffensiveDefinition();
-	auto result = buildTags(*names);
-	if (!result.success()) {
-		definition.invalidate();
-		g_logger().error("[SpellFunctions::luaSpellProfileTags] spell={} tag={} reason={}", spell->getName(), result.rejectedTag, spellTagValidationReason(result.result));
-		pushBooleanReason(L, false, spellTagValidationReason(result.result));
-		return 2;
-	}
-	const auto update = definition.setProfileTags(*profile, std::move(*result.tags));
-	pushBooleanReason(L, update == OffensiveDefinitionUpdateResult::Updated, offensiveUpdateReason(update));
-	return 2;
-}
-
-/***
- * @function Spell:createOffensiveContext
- * @param player Player
- * @return OffensiveCastContext? context
- * @return string reason
- */
-int SpellFunctions::luaSpellCreateOffensiveContext(lua_State* L) {
-	const auto &spell = Lua::getUserdataShared<Spell>(L, 1, "Spell");
-	const auto &player = Lua::getUserdataShared<Player>(L, 2, "Player");
-	if (!spell || !player) {
-		lua_pushnil(L);
-		Lua::pushString(L, "invalid_player");
-		return 2;
-	}
-	auto result = OffensiveCastContext::create(*spell, *player);
-	if (!result.success()) {
-		lua_pushnil(L);
-		Lua::pushString(L, std::string(offensiveCastContextReason(result.result)));
-		return 2;
-	}
-	Lua::pushSharedUserdata<OffensiveCastContext>(L, std::move(result.context));
-	Lua::pushString(L, "created");
-	return 2;
-}
-
-/***
- * @function OffensiveCastContext:getProfile
- * @return string
- */
-int SpellFunctions::luaOffensiveContextProfile(lua_State* L) {
-	const auto &context = Lua::getUserdataShared<OffensiveCastContext>(L, 1, "OffensiveCastContext");
-	if (!context) {
-		lua_pushnil(L);
-		return 1;
-	}
-	Lua::pushString(L, std::string(offensiveProfileName(context->profile())));
-	return 1;
-}
-
-/***
- * @function OffensiveCastContext:getEquipmentPower
- * @return integer
- */
-int SpellFunctions::luaOffensiveContextEquipmentPower(lua_State* L) {
-	const auto &context = Lua::getUserdataShared<OffensiveCastContext>(L, 1, "OffensiveCastContext");
-	if (!context) {
-		lua_pushnil(L);
-		return 1;
-	}
-	Lua::pushNumber(L, context->equipmentPower());
-	return 1;
-}
-
-/***
- * @function OffensiveCastContext:getRange
- * @return integer
- */
-int SpellFunctions::luaOffensiveContextRange(lua_State* L) {
-	const auto &context = Lua::getUserdataShared<OffensiveCastContext>(L, 1, "OffensiveCastContext");
-	if (!context) {
-		lua_pushnil(L);
-		return 1;
-	}
-	Lua::pushNumber(L, context->range());
-	return 1;
-}
-
-/***
- * @function OffensiveCastContext:requiresAmmunition
- * @return boolean
- */
-int SpellFunctions::luaOffensiveContextRequiresAmmunition(lua_State* L) {
-	const auto &context = Lua::getUserdataShared<OffensiveCastContext>(L, 1, "OffensiveCastContext");
-	if (!context) {
-		lua_pushnil(L);
-		return 1;
-	}
-	Lua::pushBoolean(L, context->requiresAmmunition());
-	return 1;
-}
-
-/***
- * @function OffensiveCastContext:getTags
- * @return string[]
- */
-int SpellFunctions::luaOffensiveContextTags(lua_State* L) {
-	const auto &context = Lua::getUserdataShared<OffensiveCastContext>(L, 1, "OffensiveCastContext");
-	if (!context) {
-		lua_pushnil(L);
-		return 1;
-	}
-	const auto names = context->effectiveTags().names();
-	lua_createtable(L, static_cast<int>(names.size()), 0);
-	int index = 1;
-	for (const auto name : names) {
-		Lua::pushString(L, std::string(name));
-		lua_rawseti(L, -2, index++);
-	}
-	return 1;
-}
-
-/***
- * @function OffensiveCastContext:getPrimaryBaseDamage
- * @return integer
- */
-int SpellFunctions::luaOffensiveContextPrimaryBaseDamage(lua_State* L) {
-	const auto &context = Lua::getUserdataShared<OffensiveCastContext>(L, 1, "OffensiveCastContext");
-	if (!context) {
-		lua_pushnil(L);
-		return 1;
-	}
-	Lua::pushNumber(L, context->primaryBaseDamage());
-	return 1;
-}
-
-/***
- * @function OffensiveCastContext:getSecondaryBaseDamage
- * @return integer
- */
-int SpellFunctions::luaOffensiveContextSecondaryBaseDamage(lua_State* L) {
-	const auto &context = Lua::getUserdataShared<OffensiveCastContext>(L, 1, "OffensiveCastContext");
-	if (!context) {
-		lua_pushnil(L);
-		return 1;
-	}
-	Lua::pushNumber(L, context->secondaryBaseDamage());
-	return 1;
-}
-
-/***
- * @function OffensiveCastContext:validatePrimaryTarget
- * @param target Creature
- * @return boolean success
- * @return string reason
- */
-int SpellFunctions::luaOffensiveContextValidatePrimaryTarget(lua_State* L) {
-	const auto &context = Lua::getUserdataShared<OffensiveCastContext>(L, 1, "OffensiveCastContext");
-	if (!context) {
-		pushBooleanReason(L, false, "invalid_context");
-		return 2;
-	}
-	const auto result = context->validatePrimaryTarget(Lua::getCreature(L, 2));
-	pushBooleanReason(L, result.success(), offensiveCastContextReason(result.result));
-	return 2;
-}
-
-/***
- * @function OffensiveCastContext:canAffect
- * @param target Creature
- * @return boolean
- */
-int SpellFunctions::luaOffensiveContextCanAffect(lua_State* L) {
-	const auto &context = Lua::getUserdataShared<OffensiveCastContext>(L, 1, "OffensiveCastContext");
-	Lua::pushBoolean(L, context && context->canAffect(Lua::getCreature(L, 2)));
-	return 1;
-}
-
-/***
- * @function OffensiveCastContext:commit
- * @param target Creature
- * @return boolean success
- * @return string reason
- */
-int SpellFunctions::luaOffensiveContextCommit(lua_State* L) {
-	const auto &context = Lua::getUserdataShared<OffensiveCastContext>(L, 1, "OffensiveCastContext");
-	if (!context) {
-		pushBooleanReason(L, false, "invalid_context");
-		return 2;
-	}
-	const auto result = context->commit(Lua::getCreature(L, 2));
-	pushBooleanReason(L, result.success(), offensiveCastContextReason(result.result));
-	return 2;
 }
 
 // only for InstantSpells

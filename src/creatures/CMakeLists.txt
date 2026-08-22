@@ -5,11 +5,7 @@ target_sources(
             appearance/attached_effects/attached_effects.cpp
             combat/combat.cpp
             combat/condition.cpp
-            combat/offensive_cast_context.cpp
-            combat/offensive_equipment_resolver.cpp
-            combat/offensive_spell_definition.cpp
             combat/spell_requirements.cpp
-            combat/spell_tags.cpp
             combat/spells.cpp
             creature.cpp
             interactions/chat.cpp

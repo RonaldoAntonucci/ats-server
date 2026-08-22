@@ -44,21 +44,6 @@ private:
 	static int luaSpellTag(lua_State* L);
 	static int luaSpellHasTag(lua_State* L);
 	static int luaSpellGetTags(lua_State* L);
-	static int luaSpellOffensiveParameters(lua_State* L);
-	static int luaSpellBaseTags(lua_State* L);
-	static int luaSpellProfileTags(lua_State* L);
-	static int luaSpellCreateOffensiveContext(lua_State* L);
-
-	static int luaOffensiveContextProfile(lua_State* L);
-	static int luaOffensiveContextEquipmentPower(lua_State* L);
-	static int luaOffensiveContextRange(lua_State* L);
-	static int luaOffensiveContextRequiresAmmunition(lua_State* L);
-	static int luaOffensiveContextTags(lua_State* L);
-	static int luaOffensiveContextPrimaryBaseDamage(lua_State* L);
-	static int luaOffensiveContextSecondaryBaseDamage(lua_State* L);
-	static int luaOffensiveContextValidatePrimaryTarget(lua_State* L);
-	static int luaOffensiveContextCanAffect(lua_State* L);
-	static int luaOffensiveContextCommit(lua_State* L);
 
 	static int luaSpellCastSound(lua_State* L);
 	static int luaSpellImpactSound(lua_State* L);

@@ -46,7 +46,6 @@ class MonsterSpell;
 class MonsterType;
 class Weapon;
 class Spell;
-class OffensiveCastContext;
 class Charm;
 class BatchUpdate;
 class Player;
@@ -159,11 +158,6 @@ struct LuaUserdataTraits<Shop> {
 template <>
 struct LuaUserdataTraits<Spell> {
 	static constexpr std::string_view name = "Spell";
-};
-
-template <>
-struct LuaUserdataTraits<OffensiveCastContext> {
-	static constexpr std::string_view name = "OffensiveCastContext";
 };
 
 template <>
@@ -483,7 +477,7 @@ public:
 	static void pushBorrowedSharedUserdata(lua_State* L, T &value) {
 		static_assert(!std::is_const_v<T>, "pushBorrowedSharedUserdata<T> requires a non-const borrowed type");
 		// This only prevents invalid delete and releases the control block; callers must not keep it past the callback.
-		pushSharedUserdata<T>(L, std::shared_ptr<T>(&value, [](T*) {}));
+		pushSharedUserdata<T>(L, std::shared_ptr<T>(&value, [](T*) { }));
 	}
 
 	template <class T>

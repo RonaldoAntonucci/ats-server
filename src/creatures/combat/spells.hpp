@@ -10,7 +10,6 @@
 #pragma once
 
 #include "lua/creature/actions.hpp"
-#include "creatures/combat/offensive_spell_definition.hpp"
 #include "creatures/combat/spell_requirements.hpp"
 #include "creatures/players/components/wheel/wheel_definitions.hpp"
 
@@ -260,8 +259,6 @@ public:
 	[[nodiscard]] bool addTag(std::string tag);
 	[[nodiscard]] bool hasTag(std::string_view tag) const;
 	[[nodiscard]] const std::vector<std::string> &getTags() const;
-	[[nodiscard]] const std::optional<OffensiveSpellDefinition> &getOffensiveDefinition() const;
-	[[nodiscard]] OffensiveSpellDefinition &getOrCreateOffensiveDefinition();
 
 	[[nodiscard]] const std::string &getSeparator() const;
 
@@ -320,7 +317,6 @@ private:
 	std::string m_separator;
 	SpellRequirementSet requirements;
 	std::vector<std::string> tags;
-	std::optional<OffensiveSpellDefinition> offensiveDefinition;
 
 	friend class SpellFunctions;
 };
