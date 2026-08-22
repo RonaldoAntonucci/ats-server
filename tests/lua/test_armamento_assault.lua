@@ -28,6 +28,10 @@ end
 COMBAT_PHYSICALDAMAGE = 1
 CONST_ME_NONE = 0
 ORIGIN_SPELL = 2
+CONST_ME_DRAWBLOOD = 10
+CONST_ME_HITAREA = 11
+CONST_ANI_ARROW = 20
+CONST_ANI_BOLT = 21
 
 local registration = { profileTags = {} }
 local cast = {}
@@ -98,6 +102,9 @@ local function resetCast(options)
 	local target = { id = 77 }
 	targets[77] = target
 	local context = {
+		getProfile = function()
+			return "sword"
+		end,
 		validatePrimaryTarget = function(_, receivedTarget)
 			table.insert(cast.events, "validate")
 			cast.validatedTarget = receivedTarget
@@ -264,11 +271,11 @@ test("submits exact deterministic neutral physical base damage", function()
 	assert_equal(-60, call[5])
 end)
 
-test("submits through the spell origin with no local impact effect", function()
+test("submits through the spell origin with the sword impact effect", function()
 	local player, _, variant = resetCast()
 	registration.spell.onCastSpell(player, variant)
 	local call = cast.damageCalls[1]
-	assert_equal(CONST_ME_NONE, call[6])
+	assert_equal(CONST_ME_DRAWBLOOD, call[6])
 	assert_equal(ORIGIN_SPELL, call[7])
 	assert_equal(nil, call[8])
 	assert_equal("Assault", call[9])

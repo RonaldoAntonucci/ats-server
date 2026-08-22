@@ -27,6 +27,10 @@ namespace {
 				COMBAT_PHYSICALDAMAGE = 1
 				CONST_ME_NONE = 0
 				ORIGIN_SPELL = 2
+				CONST_ME_DRAWBLOOD = 10
+				CONST_ME_HITAREA = 11
+				CONST_ANI_ARROW = 20
+				CONST_ANI_BOLT = 21
 				state = { calls = {}, profileTags = {} }
 				function Spell(kind)
 					state.kind = kind
@@ -90,6 +94,7 @@ TEST_F(ArmamentoAssaultScriptIntegrationTest, AValidationFailureNeverCommitsOrSu
 		local target = {}
 		state.targets = {[77] = target}
 		state.context = {
+			getProfile = function() return "sword" end,
 			validatePrimaryTarget = function()
 				table.insert(state.calls, "validate")
 				return false, "combat_denied"
@@ -110,6 +115,7 @@ TEST_F(ArmamentoAssaultScriptIntegrationTest, AValidCastCommitsBeforeSubmittingE
 		local player, target = {}, {}
 		state.targets = {[77] = target}
 		state.context = {
+			getProfile = function() return "sword" end,
 			validatePrimaryTarget = function()
 				table.insert(state.calls, "validate")
 				return true, "created"
@@ -128,7 +134,7 @@ TEST_F(ArmamentoAssaultScriptIntegrationTest, AValidCastCommitsBeforeSubmittingE
 		assert(state.damage[1] == player and state.damage[2] == target)
 		assert(state.damage[3] == COMBAT_PHYSICALDAMAGE)
 		assert(state.damage[4] == -60 and state.damage[5] == -60)
-		assert(state.damage[6] == CONST_ME_NONE and state.damage[7] == ORIGIN_SPELL)
+		assert(state.damage[6] == CONST_ME_DRAWBLOOD and state.damage[7] == ORIGIN_SPELL)
 		assert(state.damage[8] == nil and state.damage[9] == "Assault")
 	)lua");
 }
@@ -138,6 +144,7 @@ TEST_F(ArmamentoAssaultScriptIntegrationTest, ACommittedImmuneResolutionStillCom
 		state.combatResult = false
 		state.targets = {[77] = {}}
 		state.context = {
+			getProfile = function() return "sword" end,
 			validatePrimaryTarget = function() return true, "created" end,
 			commit = function() return true, "created" end,
 			getPrimaryBaseDamage = function() return 0 end,
