@@ -6,6 +6,7 @@ target_sources(
             combat/combat.cpp
             combat/condition.cpp
             combat/spell_requirements.cpp
+            combat/spell_tags.cpp
             combat/spells.cpp
             creature.cpp
             interactions/chat.cpp
