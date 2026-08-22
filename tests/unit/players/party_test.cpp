@@ -20,18 +20,20 @@
 class PartyTest : public ::testing::Test {
 protected:
 	static void SetUpTestSuite() {
-		InMemoryLogger::install(injector_);
-		DI::setTestContainer(&injector_);
+		previousTestContainer_ = DI::getTestContainer();
+		injector_ = std::make_unique<di::extension::injector<>>();
+		InMemoryLogger::install(*injector_);
+		DI::setTestContainer(injector_.get());
 	}
 
 	static void TearDownTestSuite() {
-		if (DI::getTestContainer() == &injector_) {
-			DI::setTestContainer(nullptr);
-		}
+		DI::setTestContainer(previousTestContainer_);
+		injector_.reset();
 	}
 
 private:
-	inline static di::extension::injector<> injector_ {};
+	inline static std::unique_ptr<di::extension::injector<>> injector_;
+	inline static di::extension::injector<>* previousTestContainer_ = nullptr;
 };
 
 TEST_F(PartyTest, GetPlayersAndDisbandHandleNullEntries) {

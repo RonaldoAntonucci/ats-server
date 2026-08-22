@@ -535,13 +535,22 @@ bool Spell::playerSpellCheck(const std::shared_ptr<Player> &player) const {
 		return false;
 	}
 
-	if (player->getLevel() < level) {
+	const bool useDisciplineRequirements = !requirements.empty();
+	if (useDisciplineRequirements) {
+		const auto result = requirements.evaluate(*player);
+		if (result != SpellRequirementResult::Allowed) {
+			player->sendCancelMessage(std::string(spellRequirementReason(result)));
+			return false;
+		}
+	}
+
+	if (!useDisciplineRequirements && player->getLevel() < level) {
 		player->sendCancelMessage(RETURNVALUE_NOTENOUGHLEVEL);
 		g_game().addMagicEffect(player->getPosition(), CONST_ME_POFF);
 		return false;
 	}
 
-	if (player->getMagicLevel() < magLevel) {
+	if (!useDisciplineRequirements && player->getMagicLevel() < magLevel) {
 		player->sendCancelMessage(RETURNVALUE_NOTENOUGHMAGICLEVEL);
 		g_game().addMagicEffect(player->getPosition(), CONST_ME_POFF);
 		return false;
@@ -559,7 +568,7 @@ bool Spell::playerSpellCheck(const std::shared_ptr<Player> &player) const {
 		return false;
 	}
 
-	if (g_configManager().getBoolean(LEARN_SPELLS)) {
+	if (!useDisciplineRequirements && g_configManager().getBoolean(LEARN_SPELLS)) {
 		if (isInstant()) {
 			if (!player->hasLearnedInstantSpell(getName())) {
 				player->sendCancelMessage(RETURNVALUE_YOUNEEDTOLEARNTHISSPELL);
@@ -567,7 +576,7 @@ bool Spell::playerSpellCheck(const std::shared_ptr<Player> &player) const {
 				return false;
 			}
 		}
-	} else {
+	} else if (!useDisciplineRequirements) {
 		if (isInstant() && getNeedLearn()) {
 			if (!player->hasLearnedInstantSpell(getName())) {
 				player->sendCancelMessage(RETURNVALUE_YOUNEEDTOLEARNTHISSPELL);
@@ -770,6 +779,14 @@ const std::string &Spell::getWords() const {
 
 void Spell::setWords(std::string_view newWord) {
 	m_words = newWord.data();
+}
+
+SpellRequirementDefinitionResult Spell::addDisciplineRequirement(uint16_t disciplineId, uint32_t minimumRank) {
+	return requirements.addDiscipline(disciplineId, minimumRank);
+}
+
+const SpellRequirementSet &Spell::getRequirements() const {
+	return requirements;
 }
 
 const std::string &Spell::getSeparator() const {
