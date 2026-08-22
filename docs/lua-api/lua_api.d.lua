@@ -2912,6 +2912,44 @@ function NpcType:yellChance(arg2) end
 ---@return boolean|number|nil
 function NpcType:yellSpeedTicks(arg2) end
 
+---@class OffensiveCastContext
+OffensiveCastContext = {}
+
+---@param target Creature
+---@return boolean
+function OffensiveCastContext:canAffect(target) end
+
+---@param target Creature
+---@return boolean success
+---@return string reason
+function OffensiveCastContext:commit(target) end
+
+---@return integer
+function OffensiveCastContext:getEquipmentPower() end
+
+---@return integer
+function OffensiveCastContext:getPrimaryBaseDamage() end
+
+---@return string
+function OffensiveCastContext:getProfile() end
+
+---@return integer
+function OffensiveCastContext:getRange() end
+
+---@return integer
+function OffensiveCastContext:getSecondaryBaseDamage() end
+
+---@return string[]
+function OffensiveCastContext:getTags() end
+
+---@return boolean
+function OffensiveCastContext:requiresAmmunition() end
+
+---@param target Creature
+---@return boolean success
+---@return string reason
+function OffensiveCastContext:validatePrimaryTarget(target) end
+
 ---@class Party
 ---@operator eq(Party):boolean
 Party = {}
@@ -4399,6 +4437,11 @@ function Spell:allowFarUse(value) end
 ---@return boolean|nil
 function Spell:allowOnSelf(value) end
 
+---@param tags string[]
+---@return boolean success
+---@return string reason
+function Spell:baseTags(tags) end
+
 ---@param value? boolean
 ---@return boolean|nil
 function Spell:blockWalls(value) end
@@ -4418,6 +4461,17 @@ function Spell:checkFloor(value) end
 ---@param cooldown? number
 ---@return boolean|number|nil
 function Spell:cooldown(cooldown) end
+
+---@param player Player
+---@return OffensiveCastContext? context
+---@return string reason
+function Spell:createOffensiveContext(player) end
+
+---@param disciplineId integer
+---@param minimumRank integer
+---@return boolean success
+---@return string reason
+function Spell:disciplineRequirement(disciplineId, minimumRank) end
 
 ---@param primaryGroup? string
 ---@param secondaryGroup? string
@@ -4514,9 +4568,20 @@ function Spell:needTarget(value) end
 ---@return boolean|nil
 function Spell:needWeapon(value) end
 
+---@param parameters table
+---@return boolean success
+---@return string reason
+function Spell:offensiveParameters(parameters) end
+
 ---@param callback fun(creature: Creature, variant: Variant, isHotkey?: boolean): boolean
 ---@return boolean
 function Spell:onCastSpell(callback) end
+
+---@param profile string
+---@param tags string[]
+---@return boolean success
+---@return string reason
+function Spell:profileTags(profile, tags) end
 
 ---@param range? number
 ---@return boolean|number|nil

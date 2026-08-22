@@ -3,4 +3,5 @@ target_sources(
     PRIVATE discipline_bindings_test.cpp
             event_callback_manager_test.cpp
             network_message_functions_test.cpp
+            offensive_spell_bindings_test.cpp
 )

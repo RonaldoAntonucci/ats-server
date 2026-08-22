@@ -9,9 +9,11 @@
 
 #pragma once
 
+#include "creatures/combat/offensive_equipment_resolver.hpp"
 #include "creatures/combat/spell_tags.hpp"
 
 #ifndef USE_PRECOMPILED_HEADERS
+	#include <array>
 	#include <cstdint>
 	#include <string>
 	#include <string_view>
@@ -63,18 +65,24 @@ class OffensiveSpellDefinition {
 public:
 	[[nodiscard]] const OffensivePowerParameters &parameters() const;
 	[[nodiscard]] const SpellTagSet &baseTags() const;
+	[[nodiscard]] const SpellTagSet &profileTags(OffensiveProfile profile) const;
 
 	[[nodiscard]] OffensiveDefinitionUpdateResult setParameters(const OffensivePowerParameters &newParameters, std::string_view spellName);
 	[[nodiscard]] OffensiveDefinitionUpdateResult setParameter(OffensiveParameterField field, OffensiveParameterInput input, std::string_view spellName);
 	[[nodiscard]] OffensiveDefinitionUpdateResult setBaseTags(SpellTagSet tags);
+	[[nodiscard]] OffensiveDefinitionUpdateResult setProfileTags(OffensiveProfile profile, SpellTagSet tags);
 
 	[[nodiscard]] int32_t calculateBaseDamage(const OffensivePowerInputs &inputs, OffensiveTarget target, std::string_view spellName, uint32_t casterId) const;
 
 	void freeze();
 	[[nodiscard]] bool frozen() const;
+	void invalidate();
+	[[nodiscard]] bool valid() const;
 
 private:
 	OffensivePowerParameters powerParameters;
 	SpellTagSet tags;
+	std::array<SpellTagSet, static_cast<size_t>(OffensiveProfile::Shield) + 1> tagsByProfile;
 	bool isFrozen = false;
+	bool isValid = true;
 };

@@ -46,6 +46,7 @@ class MonsterSpell;
 class MonsterType;
 class Weapon;
 class Spell;
+class OffensiveCastContext;
 class Charm;
 class BatchUpdate;
 class Player;
@@ -158,6 +159,11 @@ struct LuaUserdataTraits<Shop> {
 template <>
 struct LuaUserdataTraits<Spell> {
 	static constexpr std::string_view name = "Spell";
+};
+
+template <>
+struct LuaUserdataTraits<OffensiveCastContext> {
+	static constexpr std::string_view name = "OffensiveCastContext";
 };
 
 template <>

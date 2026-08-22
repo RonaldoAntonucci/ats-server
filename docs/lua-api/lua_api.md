@@ -3676,6 +3676,58 @@ C++ Lua binding handlers and registration lines can override inferred signatures
 - Returns: `boolean|number|nil`
 - Source: `src/lua/functions/creatures/npc/npc_type_functions.cpp`
 
+### OffensiveCastContext
+
+#### `OffensiveCastContext:canAffect(target: Creature)`
+
+- Returns: `boolean`
+- Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
+
+#### `OffensiveCastContext:commit(target: Creature)`
+
+- Returns: `boolean success, string reason`
+- Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
+
+#### `OffensiveCastContext:getEquipmentPower()`
+
+- Returns: `integer`
+- Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
+
+#### `OffensiveCastContext:getPrimaryBaseDamage()`
+
+- Returns: `integer`
+- Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
+
+#### `OffensiveCastContext:getProfile()`
+
+- Returns: `string`
+- Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
+
+#### `OffensiveCastContext:getRange()`
+
+- Returns: `integer`
+- Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
+
+#### `OffensiveCastContext:getSecondaryBaseDamage()`
+
+- Returns: `integer`
+- Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
+
+#### `OffensiveCastContext:getTags()`
+
+- Returns: `string[]`
+- Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
+
+#### `OffensiveCastContext:requiresAmmunition()`
+
+- Returns: `boolean`
+- Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
+
+#### `OffensiveCastContext:validatePrimaryTarget(target: Creature)`
+
+- Returns: `boolean success, string reason`
+- Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
+
 ### Party
 
 #### `Party:addInvite(player: Player)`
@@ -5541,6 +5593,11 @@ C++ Lua binding handlers and registration lines can override inferred signatures
 - Returns: `boolean|nil`
 - Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
 
+#### `Spell:baseTags(tags: string[])`
+
+- Returns: `boolean success, string reason`
+- Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
+
 #### `Spell:blockWalls(value?: boolean)`
 
 - Returns: `boolean|nil`
@@ -5564,6 +5621,16 @@ C++ Lua binding handlers and registration lines can override inferred signatures
 #### `Spell:cooldown(cooldown?: number)`
 
 - Returns: `boolean|number|nil`
+- Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
+
+#### `Spell:createOffensiveContext(player: Player)`
+
+- Returns: `OffensiveCastContext? context, string reason`
+- Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
+
+#### `Spell:disciplineRequirement(disciplineId: integer, minimumRank: integer)`
+
+- Returns: `boolean success, string reason`
 - Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
 
 #### `Spell:group(primaryGroup?: string, secondaryGroup?: string)`
@@ -5681,9 +5748,19 @@ C++ Lua binding handlers and registration lines can override inferred signatures
 - Returns: `boolean|nil`
 - Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
 
+#### `Spell:offensiveParameters(parameters: table)`
+
+- Returns: `boolean success, string reason`
+- Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
+
 #### `Spell:onCastSpell(callback: fun(creature: Creature, variant: Variant, isHotkey?: boolean): boolean)`
 
 - Returns: `boolean`
+- Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
+
+#### `Spell:profileTags(profile: string, tags: string[])`
+
+- Returns: `boolean success, string reason`
 - Source: `src/lua/functions/creatures/combat/spell_functions.cpp`
 
 #### `Spell:range(range?: number)`

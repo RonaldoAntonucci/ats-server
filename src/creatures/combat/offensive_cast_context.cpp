@@ -19,8 +19,8 @@
 #include "items/item.hpp"
 
 namespace {
-	SpellTagSet resolveEffectiveTags(const SpellTagSet &baseTags, OffensiveProfile profile) {
-		std::vector tags(baseTags.values().begin(), baseTags.values().end());
+	SpellTagSet resolveEffectiveTags(const OffensiveSpellDefinition &definition, OffensiveProfile profile) {
+		std::vector tags(definition.baseTags().values().begin(), definition.baseTags().values().end());
 		switch (profile) {
 			case OffensiveProfile::Sword:
 				tags.insert(tags.end(), { SpellTag::ExecutionContact, SpellTag::WeaponSword });
@@ -41,6 +41,8 @@ namespace {
 				tags.insert(tags.end(), { SpellTag::EquipmentShield, SpellTag::ExecutionContact, SpellTag::FunctionControl, SpellTag::MechanicKnockback });
 				break;
 		}
+		const auto &configuredProfileTags = definition.profileTags(profile).values();
+		tags.insert(tags.end(), configuredProfileTags.begin(), configuredProfileTags.end());
 		return normalizeSpellTags(std::move(tags));
 	}
 
@@ -114,7 +116,7 @@ OffensiveContextResult OffensiveCastContext::create(const Spell &spell, const Pl
 		.magicalAttack = magicalAttack,
 		.equipmentPower = equipment.equipmentPower,
 	};
-	auto tags = resolveEffectiveTags(definition->baseTags(), equipment.profile);
+	auto tags = resolveEffectiveTags(*definition, equipment.profile);
 	const auto primaryDamage = definition->calculateBaseDamage(inputs, OffensiveTarget::Primary, spell.getName(), player.getID());
 	const auto secondaryDamage = definition->calculateBaseDamage(inputs, OffensiveTarget::Secondary, spell.getName(), player.getID());
 

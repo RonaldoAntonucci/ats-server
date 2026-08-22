@@ -94,6 +94,10 @@ const SpellTagSet &OffensiveSpellDefinition::baseTags() const {
 	return tags;
 }
 
+const SpellTagSet &OffensiveSpellDefinition::profileTags(OffensiveProfile profile) const {
+	return tagsByProfile.at(static_cast<size_t>(profile));
+}
+
 OffensiveDefinitionUpdateResult OffensiveSpellDefinition::setParameters(const OffensivePowerParameters &newParameters, std::string_view spellName) {
 	if (isFrozen) {
 		return OffensiveDefinitionUpdateResult::Frozen;
@@ -166,6 +170,14 @@ OffensiveDefinitionUpdateResult OffensiveSpellDefinition::setBaseTags(SpellTagSe
 	return OffensiveDefinitionUpdateResult::Updated;
 }
 
+OffensiveDefinitionUpdateResult OffensiveSpellDefinition::setProfileTags(OffensiveProfile profile, SpellTagSet newTags) {
+	if (isFrozen) {
+		return OffensiveDefinitionUpdateResult::Frozen;
+	}
+	tagsByProfile.at(static_cast<size_t>(profile)) = std::move(newTags);
+	return OffensiveDefinitionUpdateResult::Updated;
+}
+
 int32_t OffensiveSpellDefinition::calculateBaseDamage(const OffensivePowerInputs &inputs, OffensiveTarget target, std::string_view spellName, uint32_t casterId) const {
 	const auto baseDamage = static_cast<long double>(powerParameters.basePower)
 		+ static_cast<long double>(inputs.physicalAttack) * static_cast<long double>(powerParameters.physicalCoefficient)
@@ -195,4 +207,12 @@ void OffensiveSpellDefinition::freeze() {
 
 bool OffensiveSpellDefinition::frozen() const {
 	return isFrozen;
+}
+
+void OffensiveSpellDefinition::invalidate() {
+	isValid = false;
+}
+
+bool OffensiveSpellDefinition::valid() const {
+	return isValid;
 }

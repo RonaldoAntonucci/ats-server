@@ -5490,6 +5490,74 @@
         "source": "src/lua/functions/creatures/npc/npc_type_functions.cpp"
       }
     ],
+    "OffensiveCastContext": [
+      {
+        "name": "canAffect",
+        "params": [
+          "target: Creature"
+        ],
+        "return": "boolean",
+        "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
+      },
+      {
+        "name": "commit",
+        "params": [
+          "target: Creature"
+        ],
+        "return": "boolean success, string reason",
+        "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
+      },
+      {
+        "name": "getEquipmentPower",
+        "params": [],
+        "return": "integer",
+        "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
+      },
+      {
+        "name": "getPrimaryBaseDamage",
+        "params": [],
+        "return": "integer",
+        "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
+      },
+      {
+        "name": "getProfile",
+        "params": [],
+        "return": "string",
+        "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
+      },
+      {
+        "name": "getRange",
+        "params": [],
+        "return": "integer",
+        "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
+      },
+      {
+        "name": "getSecondaryBaseDamage",
+        "params": [],
+        "return": "integer",
+        "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
+      },
+      {
+        "name": "getTags",
+        "params": [],
+        "return": "string[]",
+        "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
+      },
+      {
+        "name": "requiresAmmunition",
+        "params": [],
+        "return": "boolean",
+        "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
+      },
+      {
+        "name": "validatePrimaryTarget",
+        "params": [
+          "target: Creature"
+        ],
+        "return": "boolean success, string reason",
+        "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
+      }
+    ],
     "Party": [
       {
         "name": "addInvite",
@@ -8279,6 +8347,14 @@
         "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
       },
       {
+        "name": "baseTags",
+        "params": [
+          "tags: string[]"
+        ],
+        "return": "boolean success, string reason",
+        "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
+      },
+      {
         "name": "blockWalls",
         "params": [
           "value?: boolean"
@@ -8316,6 +8392,23 @@
           "cooldown?: number"
         ],
         "return": "boolean|number|nil",
+        "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
+      },
+      {
+        "name": "createOffensiveContext",
+        "params": [
+          "player: Player"
+        ],
+        "return": "OffensiveCastContext? context, string reason",
+        "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
+      },
+      {
+        "name": "disciplineRequirement",
+        "params": [
+          "disciplineId: integer",
+          "minimumRank: integer"
+        ],
+        "return": "boolean success, string reason",
         "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
       },
       {
@@ -8506,11 +8599,28 @@
         "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
       },
       {
+        "name": "offensiveParameters",
+        "params": [
+          "parameters: table"
+        ],
+        "return": "boolean success, string reason",
+        "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
+      },
+      {
         "name": "onCastSpell",
         "params": [
           "callback: fun(creature: Creature, variant: Variant, isHotkey?: boolean): boolean"
         ],
         "return": "boolean",
+        "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
+      },
+      {
+        "name": "profileTags",
+        "params": [
+          "profile: string",
+          "tags: string[]"
+        ],
+        "return": "boolean success, string reason",
         "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
       },
       {
