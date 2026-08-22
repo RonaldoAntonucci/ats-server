@@ -1,126 +1,138 @@
-local spell = Spell("instant")
+local BASE_POWER = 10
+local PHYSICAL_COEFFICIENT = 1.0
+local MAGICAL_COEFFICIENT = 0.0
+local EQUIPMENT_COEFFICIENT = 1.0
 
-local profileEffects = {
-	sword = { impact = CONST_ME_DRAWBLOOD },
-	axe = { impact = CONST_ME_HITAREA },
-	club = { impact = CONST_ME_HITAREA },
-	bow = { impact = CONST_ME_HITAREA, distance = CONST_ANI_ARROW },
-	crossbow = { impact = CONST_ME_HITAREA, distance = CONST_ANI_BOLT },
-	shield = { impact = CONST_ME_BLOCKHIT },
+local requiredVisualResources = {
+	{ name = "CONST_ME_DRAWBLOOD", value = CONST_ME_DRAWBLOOD },
+	{ name = "CONST_ME_HITAREA", value = CONST_ME_HITAREA },
+	{ name = "CONST_ME_BLOCKHIT", value = CONST_ME_BLOCKHIT },
+	{ name = "CONST_ANI_ARROW", value = CONST_ANI_ARROW },
+	{ name = "CONST_ANI_BOLT", value = CONST_ANI_BOLT },
 }
 
-local function sign(value)
-	if value < 0 then
-		return -1
-	elseif value > 0 then
-		return 1
+for _, resource in ipairs(requiredVisualResources) do
+	if type(resource.value) ~= "number" then
+		logger.error("[ArmamentoAssault] Missing visual resource: {}", resource.name)
+		return false
 	end
-	return 0
 end
 
-local function secondaryOffsets(profile, casterPosition, targetPosition)
-	if profile == "axe" then
-		local dx = sign(targetPosition.x - casterPosition.x)
-		local dy = sign(targetPosition.y - casterPosition.y)
-		return {
-			{ x = -dy, y = dx },
-			{ x = dy, y = -dx },
-		}
-	elseif profile == "club" then
-		return {
-			{ x = 1, y = 0 },
-			{ x = -1, y = 0 },
-			{ x = 0, y = 1 },
-			{ x = 0, y = -1 },
-		}
-	end
-	return {}
+local pendingEquipmentPower = {}
+
+local function calculateDamage(player, equipmentPower, multiplier)
+	local power = BASE_POWER
+		+ player:getStatPhysicalAttack() * PHYSICAL_COEFFICIENT
+		+ player:getStatMagicalAttack() * MAGICAL_COEFFICIENT
+		+ equipmentPower * EQUIPMENT_COEFFICIENT
+	return math.floor(power * multiplier)
 end
 
-local function collectTargets(player, primaryTarget, context, profile)
-	local targets = {
-		primaryTarget,
-	}
-	if profile ~= "axe" and profile ~= "club" then
-		return targets
+function onGetArmamentoAssaultPrimaryValues(player, level, magicLevel)
+	local equipmentPower = pendingEquipmentPower[player:getId()]
+	if equipmentPower == nil then
+		return 0, 0
+	end
+	local damage = calculateDamage(player, equipmentPower, 1.0)
+	return -damage, -damage
+end
+
+local function createPrimaryCombat(effect, distanceEffect)
+	local combat = Combat()
+	combat:setParameter(COMBAT_PARAM_TYPE, COMBAT_PHYSICALDAMAGE)
+	combat:setParameter(COMBAT_PARAM_EFFECT, effect)
+	combat:setParameter(COMBAT_PARAM_BLOCKARMOR, 1)
+	combat:setParameter(COMBAT_PARAM_BLOCKSHIELD, 0)
+	if distanceEffect then
+		combat:setParameter(COMBAT_PARAM_DISTANCEEFFECT, distanceEffect)
+	end
+	combat:setCallback(CALLBACK_PARAM_LEVELMAGICVALUE, "onGetArmamentoAssaultPrimaryValues")
+	return combat
+end
+
+local profiles = {
+	sword = {
+		combat = createPrimaryCombat(CONST_ME_DRAWBLOOD),
+		range = 1,
+	},
+	bow = {
+		combat = createPrimaryCombat(CONST_ME_HITAREA, CONST_ANI_ARROW),
+	},
+	crossbow = {
+		combat = createPrimaryCombat(CONST_ME_HITAREA, CONST_ANI_BOLT),
+	},
+}
+
+local function classifyWeapon(item)
+	if not item then
+		return nil
+	end
+	local itemType = ItemType(item:getId())
+	if not itemType then
+		return nil
 	end
 
-	local targetPosition = primaryTarget:getPosition()
-	local offsets = secondaryOffsets(profile, player:getPosition(), targetPosition)
-	local seen = { [primaryTarget:getId()] = true }
-	for _, offset in ipairs(offsets) do
-		local tile = Tile(Position(targetPosition.x + offset.x, targetPosition.y + offset.y, targetPosition.z))
-		local candidate = tile and tile:getTopCreature()
-		if candidate then
-			local candidateId = candidate:getId()
-			if not seen[candidateId] then
-				seen[candidateId] = true
-				if context:canAffect(candidate) then
-					table.insert(targets, candidate)
-				end
-			end
+	local weaponType = itemType:getWeaponType()
+	if weaponType == WEAPON_SWORD then
+		return "sword", profiles.sword.range
+	end
+	if weaponType ~= WEAPON_DISTANCE then
+		return nil
+	end
+
+	local ammoType = itemType:getAmmoType()
+	if ammoType == AMMO_ARROW then
+		return "bow", itemType:getShootRange()
+	elseif ammoType == AMMO_BOLT then
+		return "crossbow", itemType:getShootRange()
+	end
+	return nil
+end
+
+local function selectWeapon(player)
+	for _, slot in ipairs({ CONST_SLOT_LEFT, CONST_SLOT_RIGHT }) do
+		local item = player:getSlotItem(slot)
+		local profile, range = classifyWeapon(item)
+		if profile then
+			return item, profile, range
 		end
 	end
-	return targets
+	return nil
 end
 
-local function attemptShieldKnockback(player, primaryTarget)
-	if primaryTarget:isRemoved() or primaryTarget:getHealth() <= 0 then
-		return
+local function executePrimaryCombat(player, variant, combat, equipmentPower)
+	local playerId = player:getId()
+	pendingEquipmentPower[playerId] = equipmentPower
+	local succeeded, result = pcall(combat.execute, combat, player, variant)
+	pendingEquipmentPower[playerId] = nil
+	if not succeeded then
+		logger.error("[ArmamentoAssault] Combat execution failed: {}", result)
+		return false
 	end
-
-	local casterPosition = player:getPosition()
-	local targetPosition = primaryTarget:getPosition()
-	local dx = sign(targetPosition.x - casterPosition.x)
-	local dy = sign(targetPosition.y - casterPosition.y)
-	local destination = Tile(Position(targetPosition.x + dx, targetPosition.y + dy, targetPosition.z))
-	if destination then
-		primaryTarget:move(destination, 0)
-	end
+	return result
 end
+
+local spell = Spell("instant")
 
 function spell.onCastSpell(player, variant)
 	local targetId = variant:getNumber()
 	if targetId == 0 then
 		return false
 	end
-
-	local primaryTarget = Creature(targetId)
-	if not primaryTarget then
+	local target = Creature(targetId)
+	if not target then
 		return false
 	end
 
-	local context = spell:createOffensiveContext(player)
-	if not context then
+	local weapon, profile, range = selectWeapon(player)
+	if not weapon then
+		return false
+	end
+	if player:getPosition():getDistance(target:getPosition()) > range then
 		return false
 	end
 
-	local validTarget = context:validatePrimaryTarget(primaryTarget)
-	if not validTarget then
-		return false
-	end
-	local profile = context:getProfile()
-	local targets = collectTargets(player, primaryTarget, context, profile)
-
-	local committed = context:commit(primaryTarget)
-	if not committed then
-		return false
-	end
-
-	local effects = profileEffects[profile]
-	if effects.distance then
-		player:getPosition():sendDistanceEffect(primaryTarget:getPosition(), effects.distance)
-	end
-	local primaryBaseDamage = context:getPrimaryBaseDamage()
-	local secondaryBaseDamage = #targets > 1 and context:getSecondaryBaseDamage() or 0
-	for index, target in ipairs(targets) do
-		local baseDamage = index == 1 and primaryBaseDamage or secondaryBaseDamage
-		doTargetCombatHealth(player, target, COMBAT_PHYSICALDAMAGE, -baseDamage, -baseDamage, effects.impact, ORIGIN_SPELL, nil, "Assault")
-	end
-	if profile == "shield" then
-		attemptShieldKnockback(player, primaryTarget)
-	end
-	return true
+	return executePrimaryCombat(player, variant, profiles[profile].combat, weapon:getAttack())
 end
 
 spell:name("Assault")
@@ -128,31 +140,20 @@ spell:words("assault")
 spell:id(298)
 spell:needTarget(true)
 spell:isAggressive(true)
+spell:blockWalls(true)
 spell:mana(0)
 spell:soul(0)
 spell:cooldown(1000)
 spell:groupCooldown(0)
 spell:disciplineRequirement(1, 1)
-spell:offensiveParameters({
-	basePower = 10,
-	physicalCoefficient = 1.0,
-	magicalCoefficient = 0.0,
-	equipmentCoefficient = 1.0,
-	secondaryMultiplier = 0.5,
-	cooldownMilliseconds = 1000,
-})
-spell:baseTags({
+for _, tag in ipairs({
 	"category.art",
-	"damage.neutral",
-	"damage.physical",
 	"discipline.armament",
 	"execution.attack",
 	"function.offensive",
-})
-spell:profileTags("sword", { "execution.contact", "weapon.sword" })
-spell:profileTags("axe", { "execution.area", "execution.contact", "weapon.axe" })
-spell:profileTags("club", { "execution.area", "execution.contact", "weapon.club" })
-spell:profileTags("bow", { "execution.projectile", "weapon.bow" })
-spell:profileTags("crossbow", { "execution.projectile", "weapon.crossbow" })
-spell:profileTags("shield", { "equipment.shield", "execution.contact", "function.control", "mechanic.knockback" })
+	"damage.physical",
+	"damage.neutral",
+}) do
+	spell:tag(tag)
+end
 spell:register()

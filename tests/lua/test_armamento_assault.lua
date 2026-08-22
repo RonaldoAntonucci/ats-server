@@ -26,16 +26,66 @@ local function assert_array(expected, actual, message)
 end
 
 COMBAT_PHYSICALDAMAGE = 1
-CONST_ME_NONE = 0
-ORIGIN_SPELL = 2
+COMBAT_PARAM_TYPE = 2
+COMBAT_PARAM_EFFECT = 3
+COMBAT_PARAM_BLOCKARMOR = 4
+COMBAT_PARAM_BLOCKSHIELD = 5
+COMBAT_PARAM_DISTANCEEFFECT = 6
+CALLBACK_PARAM_LEVELMAGICVALUE = 7
 CONST_ME_DRAWBLOOD = 10
 CONST_ME_HITAREA = 11
+CONST_ME_BLOCKHIT = 12
 CONST_ANI_ARROW = 20
 CONST_ANI_BOLT = 21
+WEAPON_NONE = 0
+WEAPON_SWORD = 1
+WEAPON_DISTANCE = 2
+WEAPON_AXE = 3
+AMMO_NONE = 0
+AMMO_ARROW = 1
+AMMO_BOLT = 2
+AMMO_SPEAR = 3
+CONST_SLOT_LEFT = 5
+CONST_SLOT_RIGHT = 6
 
-local registration = { profileTags = {} }
-local cast = {}
-local targets = {}
+local registration = { tags = {} }
+local combats = {}
+local itemTypes = {}
+local state = {}
+
+logger = {
+	error = function(message, value)
+		table.insert(state.logs, message .. "|" .. tostring(value))
+	end,
+}
+
+function Combat()
+	local combat = { parameters = {} }
+	function combat:setParameter(parameter, value)
+		self.parameters[parameter] = value
+	end
+	function combat:setCallback(parameter, callback)
+		self.callbackParameter = parameter
+		self.callback = callback
+	end
+	function combat:execute(player, variant)
+		table.insert(state.events, "combat")
+		if state.combatError then
+			error(state.combatError)
+		end
+		local minimum, maximum = _G[self.callback](player, 999999, 888888)
+		table.insert(state.executions, {
+			combat = self,
+			player = player,
+			variant = variant,
+			minimum = minimum,
+			maximum = maximum,
+		})
+		return state.combatResult ~= false
+	end
+	table.insert(combats, combat)
+	return combat
+end
 
 function Spell(kind)
 	registration.kind = kind
@@ -46,27 +96,21 @@ function Spell(kind)
 		"id",
 		"needTarget",
 		"isAggressive",
+		"blockWalls",
 		"mana",
 		"soul",
 		"cooldown",
 		"groupCooldown",
 		"disciplineRequirement",
-		"offensiveParameters",
-		"baseTags",
 	}) do
 		spell[method] = function(_, ...)
 			registration[method] = { ... }
 			return true
 		end
 	end
-	spell.profileTags = function(_, ...)
-		table.insert(registration.profileTags, { ... })
-		return true
-	end
-	spell.createOffensiveContext = function(_, player)
-		table.insert(cast.events, "create")
-		cast.createdFor = player
-		return cast.context, cast.contextReason or "created"
+	spell.tag = function(_, tag)
+		table.insert(registration.tags, tag)
+		return tag ~= ""
 	end
 	spell.register = function()
 		registration.registered = true
@@ -76,61 +120,106 @@ function Spell(kind)
 	return spell
 end
 
+function ItemType(id)
+	return itemTypes[id]
+end
+
 function Creature(id)
-	cast.resolvedTargetId = id
-	return targets[id]
+	return state.targets[id]
 end
 
-function doTargetCombatHealth(...)
-	local arguments = { ... }
-	table.insert(cast.events, "combat")
-	table.insert(cast.damageCalls, arguments)
-	return cast.combatResult
-end
-
-dofile("data/scripts/spells/attack/armamento_assault.lua")
-
-local function resetCast(options)
-	options = options or {}
-	cast = {
-		events = {},
-		damageCalls = {},
-		combatResult = options.combatResult,
-		contextReason = options.contextReason,
-	}
-	targets = {}
-	local target = { id = 77 }
-	targets[77] = target
-	local context = {
-		getProfile = function()
-			return "sword"
-		end,
-		validatePrimaryTarget = function(_, receivedTarget)
-			table.insert(cast.events, "validate")
-			cast.validatedTarget = receivedTarget
-			return options.valid ~= false, options.validationReason or "created"
-		end,
-		commit = function(_, receivedTarget)
-			table.insert(cast.events, "commit")
-			cast.committedTarget = receivedTarget
-			return options.committed ~= false, options.commitReason or "created"
-		end,
-		getPrimaryBaseDamage = function()
-			table.insert(cast.events, "damage")
-			return options.baseDamage or 60
-		end,
-	}
-	if options.noContext ~= true then
-		cast.context = context
+local function position(x, y, z)
+	local value = { x = x, y = y, z = z or 7 }
+	function value:getDistance(other)
+		return math.max(math.abs(self.x - other.x), math.abs(self.y - other.y), math.abs(self.z - other.z))
 	end
-	return { id = 42 }, target, {
+	return value
+end
+
+local function item(id, weaponType, ammoType, attack, shootRange)
+	itemTypes[id] = {
+		getWeaponType = function()
+			return weaponType
+		end,
+		getAmmoType = function()
+			return ammoType or AMMO_NONE
+		end,
+		getShootRange = function()
+			return shootRange or 1
+		end,
+	}
+	return {
+		getId = function()
+			return id
+		end,
+		getAttack = function()
+			state.attackReads = state.attackReads + 1
+			return attack
+		end,
+	}
+end
+
+local function reset(options)
+	options = options or {}
+	state = {
+		events = {},
+		executions = {},
+		logs = {},
+		targets = {},
+		attackReads = 0,
+		combatResult = options.combatResult,
+		combatError = options.combatError,
+	}
+	local target = {
+		getPosition = function()
+			return position(options.targetX or 1, options.targetY or 0, options.targetZ or 7)
+		end,
+	}
+	if options.unresolved ~= true then
+		state.targets[77] = target
+	end
+	local slots = options.slots or {}
+	local player = {
+		getId = function()
+			return options.playerId or 42
+		end,
+		getStatPhysicalAttack = function()
+			return options.physicalAttack == nil and 20 or options.physicalAttack
+		end,
+		getStatMagicalAttack = function()
+			return options.magicalAttack == nil and 50 or options.magicalAttack
+		end,
+		getPosition = function()
+			return position(options.casterX or 0, options.casterY or 0, options.casterZ or 7)
+		end,
+		getSlotItem = function(_, slot)
+			if slot ~= CONST_SLOT_LEFT and slot ~= CONST_SLOT_RIGHT then
+				error("Assault consulted a non-hand inventory slot")
+			end
+			table.insert(state.events, "slot:" .. slot)
+			return slots[slot]
+		end,
+	}
+	local variant = {
 		getNumber = function()
 			return options.targetId == nil and 77 or options.targetId
 		end,
 	}
+	return player, target, variant
 end
 
-test("registers Assault as an instant spell with stable identity", function()
+local function findCombat(distanceEffect)
+	for _, combat in ipairs(combats) do
+		if combat.parameters[COMBAT_PARAM_DISTANCEEFFECT] == distanceEffect then
+			return combat
+		end
+	end
+	return nil
+end
+
+dofile("data/scripts/spells/attack/armamento_assault.lua")
+
+test("registers Assault with stable identity", function()
 	assert_equal("instant", registration.kind)
 	assert_array({ "Assault" }, registration.name)
 	assert_array({ "assault" }, registration.words)
@@ -138,62 +227,33 @@ test("registers Assault as an instant spell with stable identity", function()
 	assert_equal(true, registration.registered)
 end)
 
-test("declares a required hostile target and aggressive behavior", function()
+test("declares target aggression and wall blocking", function()
 	assert_array({ true }, registration.needTarget)
 	assert_array({ true }, registration.isAggressive)
+	assert_array({ true }, registration.blockWalls)
 end)
 
 test("requires Armamento id 1 at rank 1", function()
 	assert_array({ 1, 1 }, registration.disciplineRequirement)
 end)
 
-test("declares all six normative offensive parameters exactly", function()
-	local parameters = registration.offensiveParameters[1]
-	assert_equal(10, parameters.basePower)
-	assert_equal(1.0, parameters.physicalCoefficient)
-	assert_equal(0.0, parameters.magicalCoefficient)
-	assert_equal(1.0, parameters.equipmentCoefficient)
-	assert_equal(0.5, parameters.secondaryMultiplier)
-	assert_equal(1000, parameters.cooldownMilliseconds)
-end)
-
-test("declares the six normative base tags exactly", function()
-	assert_array({
-		"category.art",
-		"damage.neutral",
-		"damage.physical",
-		"discipline.armament",
-		"execution.attack",
-		"function.offensive",
-	}, registration.baseTags[1])
-end)
-
-test("declares every normative profile tag set", function()
-	local expected = {
-		{ "sword", "execution.contact", "weapon.sword" },
-		{ "axe", "execution.area", "execution.contact", "weapon.axe" },
-		{ "club", "execution.area", "execution.contact", "weapon.club" },
-		{ "bow", "execution.projectile", "weapon.bow" },
-		{ "crossbow", "execution.projectile", "weapon.crossbow" },
-		{ "shield", "equipment.shield", "execution.contact", "function.control", "mechanic.knockback" },
-	}
-	assert_equal(#expected, #registration.profileTags)
-	for index, values in ipairs(expected) do
-		local actual = registration.profileTags[index]
-		assert_equal(values[1], actual[1])
-		assert_array({ unpack(values, 2) }, actual[2], values[1])
-	end
-end)
-
-test("declares zero mana and zero soul", function()
+test("declares zero resources and only individual cooldown", function()
 	assert_array({ 0 }, registration.mana)
 	assert_array({ 0 }, registration.soul)
-end)
-
-test("declares only the individual cooldown and a zero group cooldown", function()
 	assert_array({ 1000 }, registration.cooldown)
 	assert_array({ 0 }, registration.groupCooldown)
 	assert_equal(nil, registration.group)
+end)
+
+test("adds the six free-form tags in normative order", function()
+	assert_array({
+		"category.art",
+		"discipline.armament",
+		"execution.attack",
+		"function.offensive",
+		"damage.physical",
+		"damage.neutral",
+	}, registration.tags)
 end)
 
 test("does not declare legacy progression or learning gates", function()
@@ -202,109 +262,148 @@ test("does not declare legacy progression or learning gates", function()
 	end
 end)
 
-test("rejects a missing target before creating a context", function()
-	local player, _, variant = resetCast({ targetId = 0 })
-	assert_equal(false, registration.spell.onCastSpell(player, variant))
-	assert_equal(0, #cast.events)
-	assert_equal(0, #cast.damageCalls)
-end)
-
-test("rejects an unresolved target before creating a context", function()
-	local player, _, variant = resetCast({ targetId = 99 })
-	assert_equal(false, registration.spell.onCastSpell(player, variant))
-	assert_equal(99, cast.resolvedTargetId)
-	assert_equal(0, #cast.events)
-end)
-
-test("rejects unsupported equipment when context creation fails", function()
-	local player, _, variant = resetCast({ noContext = true, contextReason = "unsupported_equipment" })
-	assert_equal(false, registration.spell.onCastSpell(player, variant))
-	assert_array({ "create" }, cast.events)
-	assert_equal(0, #cast.damageCalls)
-end)
-
-test("rejects missing ammunition when context creation fails", function()
-	local player, _, variant = resetCast({ noContext = true, contextReason = "missing_ammunition" })
-	assert_equal(false, registration.spell.onCastSpell(player, variant))
-	assert_array({ "create" }, cast.events)
-	assert_equal(0, #cast.damageCalls)
-end)
-
-test("rejects target validation before commit and damage", function()
-	local player, target, variant = resetCast({ valid = false, validationReason = "out_of_range" })
-	assert_equal(false, registration.spell.onCastSpell(player, variant))
-	assert_equal(target, cast.validatedTarget)
-	assert_array({ "create", "validate" }, cast.events)
-	assert_equal(0, #cast.damageCalls)
-end)
-
-test("preserves combat denial as a pre-commit failure", function()
-	local player, _, variant = resetCast({ valid = false, validationReason = "combat_denied" })
-	assert_equal(false, registration.spell.onCastSpell(player, variant))
-	assert_array({ "create", "validate" }, cast.events)
-	assert_equal(nil, cast.committedTarget)
-end)
-
-test("rejects a commit-time ammunition race without damage", function()
-	local player, target, variant = resetCast({ committed = false, commitReason = "missing_ammunition" })
-	assert_equal(false, registration.spell.onCastSpell(player, variant))
-	assert_equal(target, cast.committedTarget)
-	assert_array({ "create", "validate", "commit" }, cast.events)
-	assert_equal(0, #cast.damageCalls)
-end)
-
-test("executes the valid transaction once in strict order", function()
-	local player, _, variant = resetCast()
-	assert_equal(true, registration.spell.onCastSpell(player, variant))
-	assert_array({ "create", "validate", "commit", "damage", "combat" }, cast.events)
-	assert_equal(1, #cast.damageCalls)
-end)
-
-test("submits exact deterministic neutral physical base damage", function()
-	local player, target, variant = resetCast({ baseDamage = 60 })
-	registration.spell.onCastSpell(player, variant)
-	local call = cast.damageCalls[1]
-	assert_equal(player, call[1])
-	assert_equal(target, call[2])
-	assert_equal(COMBAT_PHYSICALDAMAGE, call[3])
-	assert_equal(-60, call[4])
-	assert_equal(-60, call[5])
-end)
-
-test("submits through the spell origin with the sword impact effect", function()
-	local player, _, variant = resetCast()
-	registration.spell.onCastSpell(player, variant)
-	local call = cast.damageCalls[1]
-	assert_equal(CONST_ME_DRAWBLOOD, call[6])
-	assert_equal(ORIGIN_SPELL, call[7])
-	assert_equal(nil, call[8])
-	assert_equal("Assault", call[9])
-end)
-
-test("submits zero base damage as a valid committed cast", function()
-	local player, _, variant = resetCast({ baseDamage = 0 })
-	assert_equal(true, registration.spell.onCastSpell(player, variant))
-	assert_equal(0, cast.damageCalls[1][4])
-	assert_equal(0, cast.damageCalls[1][5])
-end)
-
-test("keeps the cast successful after commit even when Combat reports no damage", function()
-	local player, _, variant = resetCast({ combatResult = false })
-	assert_equal(true, registration.spell.onCastSpell(player, variant))
-	assert_equal(1, #cast.damageCalls)
-end)
-
-test("creates one immutable context for the executing player", function()
-	local player, _, variant = resetCast()
-	registration.spell.onCastSpell(player, variant)
-	assert_equal(player, cast.createdFor)
-	local creates = 0
-	for _, event in ipairs(cast.events) do
-		if event == "create" then
-			creates = creates + 1
-		end
+test("configures every primary Combat for legacy armor but not shield blocking", function()
+	assert_equal(3, #combats)
+	for _, combat in ipairs(combats) do
+		assert_equal(COMBAT_PHYSICALDAMAGE, combat.parameters[COMBAT_PARAM_TYPE])
+		assert_equal(1, combat.parameters[COMBAT_PARAM_BLOCKARMOR])
+		assert_equal(0, combat.parameters[COMBAT_PARAM_BLOCKSHIELD])
+		assert_equal(CALLBACK_PARAM_LEVELMAGICVALUE, combat.callbackParameter)
+		assert_equal("onGetArmamentoAssaultPrimaryValues", combat.callback)
 	end
-	assert_equal(1, creates)
+end)
+
+test("configures sword bow and crossbow effects on Combat", function()
+	assert_equal(CONST_ME_DRAWBLOOD, findCombat(nil).parameters[COMBAT_PARAM_EFFECT])
+	assert_equal(CONST_ME_HITAREA, findCombat(CONST_ANI_ARROW).parameters[COMBAT_PARAM_EFFECT])
+	assert_equal(CONST_ME_HITAREA, findCombat(CONST_ANI_BOLT).parameters[COMBAT_PARAM_EFFECT])
+end)
+
+test("rejects a missing target before equipment lookup", function()
+	local player, _, variant = reset({ targetId = 0 })
+	assert_equal(false, registration.spell.onCastSpell(player, variant))
+	assert_equal(0, #state.events)
+	assert_equal(0, #state.executions)
+end)
+
+test("rejects an unresolved target before equipment lookup", function()
+	local player, _, variant = reset({ unresolved = true })
+	assert_equal(false, registration.spell.onCastSpell(player, variant))
+	assert_equal(0, #state.events)
+end)
+
+test("rejects unsupported hand equipment before Combat", function()
+	local axe = item(100, WEAPON_AXE, AMMO_NONE, 90, 1)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = axe } })
+	assert_equal(false, registration.spell.onCastSpell(player, variant))
+	assert_equal(0, #state.executions)
+	assert_equal(0, state.attackReads)
+end)
+
+test("selects the supported left weapon before the right", function()
+	local sword = item(101, WEAPON_SWORD, AMMO_NONE, 30, 1)
+	local crossbow = item(102, WEAPON_DISTANCE, AMMO_BOLT, 99, 7)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = sword, [CONST_SLOT_RIGHT] = crossbow } })
+	assert_equal(true, registration.spell.onCastSpell(player, variant))
+	assert_array({ "slot:" .. CONST_SLOT_LEFT, "combat" }, state.events)
+	assert_equal(-60, state.executions[1].minimum)
+	assert_equal(CONST_ME_DRAWBLOOD, state.executions[1].combat.parameters[COMBAT_PARAM_EFFECT])
+end)
+
+test("falls through unsupported left equipment to a supported right weapon", function()
+	local axe = item(103, WEAPON_AXE, AMMO_NONE, 90, 1)
+	local bow = item(104, WEAPON_DISTANCE, AMMO_ARROW, 30, 6)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = axe, [CONST_SLOT_RIGHT] = bow }, targetX = 6 })
+	assert_equal(true, registration.spell.onCastSpell(player, variant))
+	assert_array({ "slot:" .. CONST_SLOT_LEFT, "slot:" .. CONST_SLOT_RIGHT, "combat" }, state.events)
+	assert_equal(CONST_ANI_ARROW, state.executions[1].combat.parameters[COMBAT_PARAM_DISTANCEEFFECT])
+end)
+
+test("sword requires an adjacent primary target", function()
+	local sword = item(105, WEAPON_SWORD, AMMO_NONE, 30, 1)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = sword }, targetX = 2 })
+	assert_equal(false, registration.spell.onCastSpell(player, variant))
+	assert_equal(0, #state.executions)
+	assert_equal(0, state.attackReads)
+end)
+
+test("bow works at its exact shoot range without ammunition inventory", function()
+	local bow = item(106, WEAPON_DISTANCE, AMMO_ARROW, 30, 6)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = bow }, targetX = 6 })
+	assert_equal(true, registration.spell.onCastSpell(player, variant))
+	assert_equal(CONST_ANI_ARROW, state.executions[1].combat.parameters[COMBAT_PARAM_DISTANCEEFFECT])
+	assert_equal(1, state.attackReads)
+end)
+
+test("bow rejects a target beyond its current shoot range", function()
+	local bow = item(107, WEAPON_DISTANCE, AMMO_ARROW, 30, 6)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = bow }, targetX = 7 })
+	assert_equal(false, registration.spell.onCastSpell(player, variant))
+	assert_equal(0, #state.executions)
+end)
+
+test("crossbow uses bolt metadata and ignores ammunition inventory", function()
+	local crossbow = item(108, WEAPON_DISTANCE, AMMO_BOLT, 30, 7)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_RIGHT] = crossbow }, targetX = 7 })
+	assert_equal(true, registration.spell.onCastSpell(player, variant))
+	assert_equal(CONST_ANI_BOLT, state.executions[1].combat.parameters[COMBAT_PARAM_DISTANCEEFFECT])
+	assert_equal(1, state.attackReads)
+end)
+
+test("rejects unsupported distance ammunition metadata", function()
+	local spear = item(109, WEAPON_DISTANCE, AMMO_SPEAR, 90, 5)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = spear } })
+	assert_equal(false, registration.spell.onCastSpell(player, variant))
+	assert_equal(0, #state.executions)
+end)
+
+test("calculates exact deterministic Lua damage and ignores callback level values", function()
+	local sword = item(110, WEAPON_SWORD, AMMO_NONE, 30, 1)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = sword }, physicalAttack = 20, magicalAttack = 999 })
+	assert_equal(true, registration.spell.onCastSpell(player, variant))
+	assert_equal(-60, state.executions[1].minimum)
+	assert_equal(-60, state.executions[1].maximum)
+end)
+
+test("uses the effective attack returned by the item instance", function()
+	local overriddenSword = item(111, WEAPON_SWORD, AMMO_NONE, 77, 1)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = overriddenSword }, physicalAttack = 20 })
+	assert_equal(true, registration.spell.onCastSpell(player, variant))
+	assert_equal(-107, state.executions[1].minimum)
+end)
+
+test("submits zero deterministic base damage through Combat", function()
+	local sword = item(112, WEAPON_SWORD, AMMO_NONE, 0, 1)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = sword }, physicalAttack = -10 })
+	assert_equal(true, registration.spell.onCastSpell(player, variant))
+	assert_equal(0, state.executions[1].minimum)
+	assert_equal(0, state.executions[1].maximum)
+end)
+
+test("clears the formula bridge after a successful execution", function()
+	local sword = item(113, WEAPON_SWORD, AMMO_NONE, 30, 1)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = sword } })
+	assert_equal(true, registration.spell.onCastSpell(player, variant))
+	local minimum, maximum = onGetArmamentoAssaultPrimaryValues(player, 1, 1)
+	assert_equal(0, minimum)
+	assert_equal(0, maximum)
+end)
+
+test("returns Combat denial and still clears the formula bridge", function()
+	local sword = item(114, WEAPON_SWORD, AMMO_NONE, 30, 1)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = sword }, combatResult = false })
+	assert_equal(false, registration.spell.onCastSpell(player, variant))
+	local minimum = onGetArmamentoAssaultPrimaryValues(player, 1, 1)
+	assert_equal(0, minimum)
+end)
+
+test("contains a Combat error and clears the formula bridge", function()
+	local sword = item(115, WEAPON_SWORD, AMMO_NONE, 30, 1)
+	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = sword }, combatError = "synthetic failure" })
+	assert_equal(false, registration.spell.onCastSpell(player, variant))
+	assert_equal(1, #state.logs)
+	local minimum = onGetArmamentoAssaultPrimaryValues(player, 1, 1)
+	assert_equal(0, minimum)
 end)
 
 print(string.format("\n%d passed, %d failed", passed, failed))
