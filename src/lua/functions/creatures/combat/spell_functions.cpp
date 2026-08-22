@@ -167,6 +167,9 @@ void SpellFunctions::init(lua_State* L) {
 	Lua::registerMethod(L, "Spell", "isAggressive", SpellFunctions::luaSpellAggressive);
 	Lua::registerMethod(L, "Spell", "vocation", SpellFunctions::luaSpellVocation);
 	Lua::registerMethod(L, "Spell", "disciplineRequirement", SpellFunctions::luaSpellDisciplineRequirement);
+	Lua::registerMethod(L, "Spell", "tag", SpellFunctions::luaSpellTag);
+	Lua::registerMethod(L, "Spell", "hasTag", SpellFunctions::luaSpellHasTag);
+	Lua::registerMethod(L, "Spell", "getTags", SpellFunctions::luaSpellGetTags);
 	Lua::registerMethod(L, "Spell", "offensiveParameters", SpellFunctions::luaSpellOffensiveParameters);
 	Lua::registerMethod(L, "Spell", "baseTags", SpellFunctions::luaSpellBaseTags);
 	Lua::registerMethod(L, "Spell", "profileTags", SpellFunctions::luaSpellProfileTags);
@@ -854,6 +857,56 @@ int SpellFunctions::luaSpellDisciplineRequirement(lua_State* L) {
 	const auto result = spell->addDisciplineRequirement(static_cast<uint16_t>(disciplineId), static_cast<uint32_t>(minimumRank));
 	pushBooleanReason(L, result == SpellRequirementDefinitionResult::Added || result == SpellRequirementDefinitionResult::Duplicate, disciplineDefinitionReason(result));
 	return 2;
+}
+
+/***
+ * @function Spell:tag
+ * @param tag string
+ * @return boolean success
+ */
+int SpellFunctions::luaSpellTag(lua_State* L) {
+	const auto &spell = Lua::getUserdataShared<Spell>(L, 1, "Spell");
+	if (!spell || lua_type(L, 2) != LUA_TSTRING) {
+		Lua::pushBoolean(L, false);
+		return 1;
+	}
+	Lua::pushBoolean(L, spell->addTag(Lua::getString(L, 2)));
+	return 1;
+}
+
+/***
+ * @function Spell:hasTag
+ * @param tag string
+ * @return boolean
+ */
+int SpellFunctions::luaSpellHasTag(lua_State* L) {
+	const auto &spell = Lua::getUserdataShared<Spell>(L, 1, "Spell");
+	if (!spell || lua_type(L, 2) != LUA_TSTRING) {
+		Lua::pushBoolean(L, false);
+		return 1;
+	}
+	Lua::pushBoolean(L, spell->hasTag(Lua::getString(L, 2)));
+	return 1;
+}
+
+/***
+ * @function Spell:getTags
+ * @return string[]
+ */
+int SpellFunctions::luaSpellGetTags(lua_State* L) {
+	const auto &spell = Lua::getUserdataShared<Spell>(L, 1, "Spell");
+	if (!spell) {
+		lua_pushnil(L);
+		return 1;
+	}
+	const auto &tags = spell->getTags();
+	lua_createtable(L, static_cast<int>(tags.size()), 0);
+	int index = 1;
+	for (const auto &tag : tags) {
+		Lua::pushString(L, tag);
+		lua_rawseti(L, -2, index++);
+	}
+	return 1;
 }
 
 /***

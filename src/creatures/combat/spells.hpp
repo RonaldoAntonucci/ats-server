@@ -257,6 +257,9 @@ public:
 	void setWords(std::string_view newWord);
 	[[nodiscard]] SpellRequirementDefinitionResult addDisciplineRequirement(uint16_t disciplineId, uint32_t minimumRank);
 	[[nodiscard]] const SpellRequirementSet &getRequirements() const;
+	[[nodiscard]] bool addTag(std::string tag);
+	[[nodiscard]] bool hasTag(std::string_view tag) const;
+	[[nodiscard]] const std::vector<std::string> &getTags() const;
 	[[nodiscard]] const std::optional<OffensiveSpellDefinition> &getOffensiveDefinition() const;
 	[[nodiscard]] OffensiveSpellDefinition &getOrCreateOffensiveDefinition();
 
@@ -316,6 +319,7 @@ private:
 	std::string m_words;
 	std::string m_separator;
 	SpellRequirementSet requirements;
+	std::vector<std::string> tags;
 	std::optional<OffensiveSpellDefinition> offensiveDefinition;
 
 	friend class SpellFunctions;

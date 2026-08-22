@@ -789,6 +789,24 @@ const SpellRequirementSet &Spell::getRequirements() const {
 	return requirements;
 }
 
+bool Spell::addTag(std::string tag) {
+	if (tag.empty()) {
+		return false;
+	}
+	if (!hasTag(tag)) {
+		tags.emplace_back(std::move(tag));
+	}
+	return true;
+}
+
+bool Spell::hasTag(std::string_view tag) const {
+	return std::ranges::find(tags, tag) != tags.end();
+}
+
+const std::vector<std::string> &Spell::getTags() const {
+	return tags;
+}
+
 const std::optional<OffensiveSpellDefinition> &Spell::getOffensiveDefinition() const {
 	return offensiveDefinition;
 }

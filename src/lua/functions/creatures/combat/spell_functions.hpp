@@ -41,6 +41,9 @@ private:
 	static int luaSpellAggressive(lua_State* L);
 	static int luaSpellVocation(lua_State* L);
 	static int luaSpellDisciplineRequirement(lua_State* L);
+	static int luaSpellTag(lua_State* L);
+	static int luaSpellHasTag(lua_State* L);
+	static int luaSpellGetTags(lua_State* L);
 	static int luaSpellOffensiveParameters(lua_State* L);
 	static int luaSpellBaseTags(lua_State* L);
 	static int luaSpellProfileTags(lua_State* L);
