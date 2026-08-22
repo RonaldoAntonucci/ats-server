@@ -21,10 +21,7 @@ end
 local pendingEquipmentPower = {}
 
 local function calculateDamage(player, equipmentPower, multiplier)
-	local power = BASE_POWER
-		+ player:getStatPhysicalAttack() * PHYSICAL_COEFFICIENT
-		+ player:getStatMagicalAttack() * MAGICAL_COEFFICIENT
-		+ equipmentPower * EQUIPMENT_COEFFICIENT
+	local power = BASE_POWER + player:getStatPhysicalAttack() * PHYSICAL_COEFFICIENT + player:getStatMagicalAttack() * MAGICAL_COEFFICIENT + equipmentPower * EQUIPMENT_COEFFICIENT
 	return math.floor(power * multiplier)
 end
 

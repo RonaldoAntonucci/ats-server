@@ -46,7 +46,7 @@ namespace {
 				AMMO_BOLT = 2
 				CONST_SLOT_LEFT = 5
 				CONST_SLOT_RIGHT = 6
-				state = { combats = {}, itemTypes = {}, targets = {}, logs = {}, tags = {} }
+				state = { combats = {}, itemTypes = {}, targets = {}, logs = {}, tags = {}, itemMutations = 0 }
 				logger = { error = function(message, value) table.insert(state.logs, message .. "|" .. tostring(value)) end }
 				function Combat()
 					local combat = { parameters = {} }
@@ -100,6 +100,8 @@ namespace {
 						getStatMagicalAttack = function() return 999 end,
 						getPosition = function() return position(0, 0, 7) end,
 						getSlotItem = function(_, slot) return slot == CONST_SLOT_LEFT and left or right end,
+						getItemCount = function() return 0 end,
+						removeItem = function() state.itemMutations = state.itemMutations + 1; return false end,
 					}
 					local variant = { getNumber = function() return 77 end }
 					return state.spell.onCastSpell(player, variant), player
@@ -156,10 +158,13 @@ TEST_F(ArmamentoAssaultScriptIntegrationTest, SwordFormulaUsesCurrentAttackAndAt
 TEST_F(ArmamentoAssaultScriptIntegrationTest, BowUsesWeaponRangeWithoutAmmunitionLookup) {
 	run(R"lua(
 		local bow = weapon(102, WEAPON_DISTANCE, AMMO_ARROW, 30, 6)
+		assert(state.itemMutations == 0)
 		assert(castWith(nil, bow, 6) == true)
 		assert(state.execution.minimum == -60 and state.execution.maximum == -60)
 		assert(state.execution.combat.parameters[COMBAT_PARAM_DISTANCEEFFECT] == CONST_ANI_ARROW)
+		assert(state.itemMutations == 0)
 		assert(castWith(nil, bow, 7) == false)
+		assert(state.itemMutations == 0)
 	)lua");
 }
 

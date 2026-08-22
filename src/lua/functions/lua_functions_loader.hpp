@@ -477,7 +477,7 @@ public:
 	static void pushBorrowedSharedUserdata(lua_State* L, T &value) {
 		static_assert(!std::is_const_v<T>, "pushBorrowedSharedUserdata<T> requires a non-const borrowed type");
 		// This only prevents invalid delete and releases the control block; callers must not keep it past the callback.
-		pushSharedUserdata<T>(L, std::shared_ptr<T>(&value, [](T*) { }));
+		pushSharedUserdata<T>(L, std::shared_ptr<T>(&value, [](T*) {}));
 	}
 
 	template <class T>

@@ -91,12 +91,28 @@ end
 function Spell()
 	local spell = {}
 	for _, method in ipairs({
-		"name", "words", "id", "needTarget", "isAggressive", "blockWalls", "mana", "soul", "cooldown", "groupCooldown", "disciplineRequirement",
+		"name",
+		"words",
+		"id",
+		"needTarget",
+		"isAggressive",
+		"blockWalls",
+		"mana",
+		"soul",
+		"cooldown",
+		"groupCooldown",
+		"disciplineRequirement",
 	}) do
-		spell[method] = function() return true end
+		spell[method] = function()
+			return true
+		end
 	end
-	spell.tag = function() return true end
-	spell.register = function() return true end
+	spell.tag = function()
+		return true
+	end
+	spell.register = function()
+		return true
+	end
 	registration.spell = spell
 	return spell
 end
@@ -132,12 +148,20 @@ end
 
 local function item(id, weaponType, attack, defense)
 	itemTypes[id] = {
-		getWeaponType = function() return weaponType end,
-		getAmmoType = function() return AMMO_NONE end,
-		getShootRange = function() return 1 end,
+		getWeaponType = function()
+			return weaponType
+		end,
+		getAmmoType = function()
+			return AMMO_NONE
+		end,
+		getShootRange = function()
+			return 1
+		end,
 	}
 	return {
-		getId = function() return id end,
+		getId = function()
+			return id
+		end,
 		getAttack = function()
 			state.attackReads = state.attackReads + 1
 			return attack
@@ -152,7 +176,11 @@ end
 local function reset(options)
 	options = options or {}
 	state = {
-		events = {}, tiles = {}, scheduled = 0, attackReads = 0, defenseReads = 0,
+		events = {},
+		tiles = {},
+		scheduled = 0,
+		attackReads = 0,
+		defenseReads = 0,
 		combatResult = options.combatResult,
 		healthAfterDamage = options.healthAfterDamage == nil and 40 or options.healthAfterDamage,
 	}
@@ -161,8 +189,12 @@ local function reset(options)
 	local target = {
 		health = 100,
 		position = targetPosition,
-		getId = function() return 77 end,
-		getPosition = function(self) return self.position end,
+		getId = function()
+			return 77
+		end,
+		getPosition = function(self)
+			return self.position
+		end,
 		isRemoved = function()
 			table.insert(state.events, "removed-check")
 			return options.removed == true
@@ -174,7 +206,9 @@ local function reset(options)
 		move = function(self, tile, flags)
 			table.insert(state.events, "move")
 			state.move = { tile = tile, flags = flags }
-			if options.moveSucceeds == false then return 1 end
+			if options.moveSucceeds == false then
+				return 1
+			end
 			self.position = tile.position
 			return 0
 		end,
@@ -182,16 +216,28 @@ local function reset(options)
 	state.target = target
 	local slots = options.slots or {}
 	local player = {
-		getId = function() return 42 end,
-		getStatPhysicalAttack = function() return options.physicalAttack == nil and 20 or options.physicalAttack end,
-		getStatMagicalAttack = function() return 999 end,
-		getPosition = function() return casterPosition end,
+		getId = function()
+			return 42
+		end,
+		getStatPhysicalAttack = function()
+			return options.physicalAttack == nil and 20 or options.physicalAttack
+		end,
+		getStatMagicalAttack = function()
+			return 999
+		end,
+		getPosition = function()
+			return casterPosition
+		end,
 		getSlotItem = function(_, slot)
 			table.insert(state.events, "slot:" .. slot)
 			return slots[slot]
 		end,
 	}
-	return player, target, { getNumber = function() return 77 end }
+	return player, target, {
+		getNumber = function()
+			return 77
+		end,
+	}
 end
 
 local function destination(x, y)
@@ -326,7 +372,11 @@ end)
 test("diagonal shield knockback is synchronous with no delayed work", function()
 	local shield = item(116, WEAPON_SHIELD, 0, 30)
 	local player, _, variant = reset({
-		slots = { [CONST_SLOT_LEFT] = shield }, casterX = 10, casterY = 10, targetX = 9, targetY = 9,
+		slots = { [CONST_SLOT_LEFT] = shield },
+		casterX = 10,
+		casterY = 10,
+		targetX = 9,
+		targetY = 9,
 	})
 	local tile = destination(8, 8)
 	assert_equal(true, registration.spell.onCastSpell(player, variant))

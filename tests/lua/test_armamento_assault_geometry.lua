@@ -233,7 +233,11 @@ local function reset(profile, targetX, targetY, attack)
 			return slot == CONST_SLOT_LEFT and equipped or nil
 		end,
 	}
-	local variant = { getNumber = function() return 1 end }
+	local variant = {
+		getNumber = function()
+			return 1
+		end,
+	}
 	return player, variant
 end
 
