@@ -51,11 +51,16 @@ namespace {
 				function Combat()
 					local combat = { parameters = {} }
 					function combat:setParameter(parameter, value) self.parameters[parameter] = value end
-					function combat:setCallback(parameter, callback) self.callbackParameter, self.callback = parameter, callback end
+					function combat:setCallback(parameter, callback)
+						self.callbackParameter, self.callbackName = parameter, callback
+						self.callback = _G[callback]
+						_G[callback] = nil
+						return self.callback ~= nil
+					end
 					function combat:setArea(area) self.area = area end
 					function combat:execute(player, variant)
 						if state.combatError then error(state.combatError) end
-						local minimum, maximum = _G[self.callback](player, 999999, 999999)
+						local minimum, maximum = self.callback(player, 999999, 999999)
 						state.execution = { combat = self, player = player, variant = variant, minimum = minimum, maximum = maximum }
 						return state.combatResult ~= false
 					end
@@ -134,6 +139,7 @@ TEST_F(ArmamentoAssaultScriptIntegrationTest, LoadsThroughInstantSpellAndConfigu
 			assert(combat.parameters[COMBAT_PARAM_TYPE] == COMBAT_PHYSICALDAMAGE)
 			assert(combat.parameters[COMBAT_PARAM_BLOCKARMOR] == 1)
 			assert(combat.parameters[COMBAT_PARAM_BLOCKSHIELD] == 0)
+			assert(type(combat.callback) == "function")
 		end
 	)lua");
 }
@@ -174,7 +180,7 @@ TEST_F(ArmamentoAssaultScriptIntegrationTest, CombatFailureClearsTheEphemeralFor
 		local sword = weapon(103, WEAPON_SWORD, AMMO_NONE, 30, 1)
 		local result, player = castWith(sword, nil, 1)
 		assert(result == false and #state.logs == 1)
-		local minimum, maximum = onGetArmamentoAssaultPrimaryValues(player, 1, 1)
+		local minimum, maximum = state.combats[1].callback(player, 1, 1)
 		assert(minimum == 0 and maximum == 0)
 	)lua");
 }

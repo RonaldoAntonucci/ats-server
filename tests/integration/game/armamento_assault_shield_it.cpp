@@ -34,11 +34,16 @@ namespace {
 				function Combat()
 					local combat={parameters={}}
 					function combat:setParameter(parameter,value) self.parameters[parameter]=value end
-					function combat:setCallback(_,callback) self.callback=callback end
+					function combat:setCallback(_,callback)
+						self.callbackName=callback
+						self.callback=_G[callback]
+						_G[callback]=nil
+						return self.callback~=nil
+					end
 					function combat:setArea(area) self.area=area end
 					function combat:execute(player,variant)
 						table.insert(state.events,"damage")
-						local minimum,maximum=_G[self.callback](player,999999,999999)
+						local minimum,maximum=self.callback(player,999999,999999)
 						state.damage={combat=self,minimum=minimum,maximum=maximum,variant=variant}
 						state.target.health=40
 						return true

@@ -98,13 +98,16 @@ function Combat()
 		self.parameters[parameter] = value
 	end
 	function combat:setCallback(_, callback)
-		self.callback = callback
+		self.callbackName = callback
+		self.callback = _G[callback]
+		_G[callback] = nil
+		return self.callback ~= nil
 	end
 	function combat:setArea(area)
 		self.area = area
 	end
 	function combat:execute(player, variant)
-		local minimum, maximum = _G[self.callback](player, 999999, 999999)
+		local minimum, maximum = self.callback(player, 999999, 999999)
 		if not self.area then
 			table.insert(state.events, "primary")
 			table.insert(state.damage, { id = variant:getNumber(), minimum = minimum, maximum = maximum, secondary = false })

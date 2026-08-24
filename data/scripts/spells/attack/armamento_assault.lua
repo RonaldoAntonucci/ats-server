@@ -43,6 +43,15 @@ function onGetArmamentoAssaultSecondaryValues(player, level, magicLevel)
 	return -damage, -damage
 end
 
+local primaryFormulaCallback = {
+	name = "onGetArmamentoAssaultPrimaryValues",
+	callback = onGetArmamentoAssaultPrimaryValues,
+}
+local secondaryFormulaCallback = {
+	name = "onGetArmamentoAssaultSecondaryValues",
+	callback = onGetArmamentoAssaultSecondaryValues,
+}
+
 local function createCombat(effect, callback, distanceEffect, area)
 	local combat = Combat()
 	combat:setParameter(COMBAT_PARAM_TYPE, COMBAT_PHYSICALDAMAGE)
@@ -55,7 +64,8 @@ local function createCombat(effect, callback, distanceEffect, area)
 	if area then
 		combat:setArea(area)
 	end
-	combat:setCallback(CALLBACK_PARAM_LEVELMAGICVALUE, callback)
+	_G[callback.name] = callback.callback
+	combat:setCallback(CALLBACK_PARAM_LEVELMAGICVALUE, callback.name)
 	return combat
 end
 
@@ -75,27 +85,27 @@ local clubSecondaryArea = createCombatArea({
 
 local profiles = {
 	sword = {
-		combat = createCombat(CONST_ME_DRAWBLOOD, "onGetArmamentoAssaultPrimaryValues"),
+		combat = createCombat(CONST_ME_DRAWBLOOD, primaryFormulaCallback),
 		range = 1,
 	},
 	bow = {
-		combat = createCombat(CONST_ME_HITAREA, "onGetArmamentoAssaultPrimaryValues", CONST_ANI_ARROW),
+		combat = createCombat(CONST_ME_HITAREA, primaryFormulaCallback, CONST_ANI_ARROW),
 	},
 	crossbow = {
-		combat = createCombat(CONST_ME_HITAREA, "onGetArmamentoAssaultPrimaryValues", CONST_ANI_BOLT),
+		combat = createCombat(CONST_ME_HITAREA, primaryFormulaCallback, CONST_ANI_BOLT),
 	},
 	axe = {
-		combat = createCombat(CONST_ME_HITAREA, "onGetArmamentoAssaultPrimaryValues"),
-		secondaryCombat = createCombat(CONST_ME_HITAREA, "onGetArmamentoAssaultSecondaryValues", nil, axeSecondaryArea),
+		combat = createCombat(CONST_ME_HITAREA, primaryFormulaCallback),
+		secondaryCombat = createCombat(CONST_ME_HITAREA, secondaryFormulaCallback, nil, axeSecondaryArea),
 		range = 1,
 	},
 	club = {
-		combat = createCombat(CONST_ME_HITAREA, "onGetArmamentoAssaultPrimaryValues"),
-		secondaryCombat = createCombat(CONST_ME_HITAREA, "onGetArmamentoAssaultSecondaryValues", nil, clubSecondaryArea),
+		combat = createCombat(CONST_ME_HITAREA, primaryFormulaCallback),
+		secondaryCombat = createCombat(CONST_ME_HITAREA, secondaryFormulaCallback, nil, clubSecondaryArea),
 		range = 1,
 	},
 	shield = {
-		combat = createCombat(CONST_ME_BLOCKHIT, "onGetArmamentoAssaultPrimaryValues"),
+		combat = createCombat(CONST_ME_BLOCKHIT, primaryFormulaCallback),
 		range = 1,
 	},
 }

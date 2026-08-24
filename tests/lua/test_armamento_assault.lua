@@ -68,7 +68,10 @@ function Combat()
 	end
 	function combat:setCallback(parameter, callback)
 		self.callbackParameter = parameter
-		self.callback = callback
+		self.callbackName = callback
+		self.callback = _G[callback]
+		_G[callback] = nil
+		return self.callback ~= nil
 	end
 	function combat:setArea(area)
 		self.area = area
@@ -78,7 +81,7 @@ function Combat()
 		if state.combatError then
 			error(state.combatError)
 		end
-		local minimum, maximum = _G[self.callback](player, 999999, 888888)
+		local minimum, maximum = self.callback(player, 999999, 888888)
 		table.insert(state.executions, {
 			combat = self,
 			player = player,
@@ -287,7 +290,8 @@ test("configures every Assault Combat for legacy armor but not shield blocking",
 		assert_equal(1, combat.parameters[COMBAT_PARAM_BLOCKARMOR])
 		assert_equal(0, combat.parameters[COMBAT_PARAM_BLOCKSHIELD])
 		assert_equal(CALLBACK_PARAM_LEVELMAGICVALUE, combat.callbackParameter)
-		assert_equal(true, combat.callback == "onGetArmamentoAssaultPrimaryValues" or combat.callback == "onGetArmamentoAssaultSecondaryValues")
+		assert_equal(true, combat.callbackName == "onGetArmamentoAssaultPrimaryValues" or combat.callbackName == "onGetArmamentoAssaultSecondaryValues")
+		assert_equal("function", type(combat.callback))
 	end
 end)
 
@@ -402,7 +406,7 @@ test("clears the formula bridge after a successful execution", function()
 	local sword = item(113, WEAPON_SWORD, AMMO_NONE, 30, 1)
 	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = sword } })
 	assert_equal(true, registration.spell.onCastSpell(player, variant))
-	local minimum, maximum = onGetArmamentoAssaultPrimaryValues(player, 1, 1)
+	local minimum, maximum = combats[1].callback(player, 1, 1)
 	assert_equal(0, minimum)
 	assert_equal(0, maximum)
 end)
@@ -411,7 +415,7 @@ test("returns Combat denial and still clears the formula bridge", function()
 	local sword = item(114, WEAPON_SWORD, AMMO_NONE, 30, 1)
 	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = sword }, combatResult = false })
 	assert_equal(false, registration.spell.onCastSpell(player, variant))
-	local minimum = onGetArmamentoAssaultPrimaryValues(player, 1, 1)
+	local minimum = combats[1].callback(player, 1, 1)
 	assert_equal(0, minimum)
 end)
 
@@ -420,7 +424,7 @@ test("contains a Combat error and clears the formula bridge", function()
 	local player, _, variant = reset({ slots = { [CONST_SLOT_LEFT] = sword }, combatError = "synthetic failure" })
 	assert_equal(false, registration.spell.onCastSpell(player, variant))
 	assert_equal(1, #state.logs)
-	local minimum = onGetArmamentoAssaultPrimaryValues(player, 1, 1)
+	local minimum = combats[1].callback(player, 1, 1)
 	assert_equal(0, minimum)
 end)
 
