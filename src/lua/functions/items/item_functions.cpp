@@ -43,6 +43,8 @@ void ItemFunctions::init(lua_State* L) {
 	Lua::registerMethod(L, "Item", "getCharges", ItemFunctions::luaItemGetCharges);
 	Lua::registerMethod(L, "Item", "getFluidType", ItemFunctions::luaItemGetFluidType);
 	Lua::registerMethod(L, "Item", "getWeight", ItemFunctions::luaItemGetWeight);
+	Lua::registerMethod(L, "Item", "getAttack", ItemFunctions::luaItemGetAttack);
+	Lua::registerMethod(L, "Item", "getDefense", ItemFunctions::luaItemGetDefense);
 
 	Lua::registerMethod(L, "Item", "getSubType", ItemFunctions::luaItemGetSubType);
 
@@ -351,6 +353,34 @@ int ItemFunctions::luaItemGetWeight(lua_State* L) {
 	const auto &item = Lua::getUserdataShared<Item>(L, 1, "Item");
 	if (item) {
 		lua_pushnumber(L, item->getWeight());
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+/***
+ * @function Item:getAttack
+ * @return integer|nil
+ */
+int ItemFunctions::luaItemGetAttack(lua_State* L) {
+	const auto &item = Lua::getUserdataShared<Item>(L, 1, "Item");
+	if (item) {
+		lua_pushnumber(L, item->getAttack());
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+/***
+ * @function Item:getDefense
+ * @return integer|nil
+ */
+int ItemFunctions::luaItemGetDefense(lua_State* L) {
+	const auto &item = Lua::getUserdataShared<Item>(L, 1, "Item");
+	if (item) {
+		lua_pushnumber(L, item->getDefense());
 	} else {
 		lua_pushnil(L);
 	}

@@ -40,6 +40,10 @@ private:
 	static int luaSpellBlocking(lua_State* L);
 	static int luaSpellAggressive(lua_State* L);
 	static int luaSpellVocation(lua_State* L);
+	static int luaSpellDisciplineRequirement(lua_State* L);
+	static int luaSpellTag(lua_State* L);
+	static int luaSpellHasTag(lua_State* L);
+	static int luaSpellGetTags(lua_State* L);
 
 	static int luaSpellCastSound(lua_State* L);
 	static int luaSpellImpactSound(lua_State* L);

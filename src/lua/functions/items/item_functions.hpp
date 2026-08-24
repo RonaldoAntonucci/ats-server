@@ -40,6 +40,8 @@ private:
 	static int luaItemGetCharges(lua_State* L);
 	static int luaItemGetFluidType(lua_State* L);
 	static int luaItemGetWeight(lua_State* L);
+	static int luaItemGetAttack(lua_State* L);
+	static int luaItemGetDefense(lua_State* L);
 
 	static int luaItemGetSubType(lua_State* L);
 

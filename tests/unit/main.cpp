@@ -15,9 +15,9 @@
 int main(int argc, char** argv) {
 	::testing::InitGoogleTest(&argc, argv);
 
-	static di::extension::injector<> injector {};
-	InMemoryLogger::install(injector);
-	DI::setTestContainer(&injector);
+	static auto* injector = new di::extension::injector<>();
+	InMemoryLogger::install(*injector);
+	DI::setTestContainer(injector);
 
 	(void)g_logger();
 	(void)g_configManager();

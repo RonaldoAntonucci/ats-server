@@ -188,6 +188,8 @@ class TestDatabase final {
 
 		bool reconnect = true;
 		mysql_options(handle, MYSQL_OPT_RECONNECT, &reconnect);
+		bool sslEnabled = false;
+		mysql_options(handle, MYSQL_OPT_SSL_VERIFY_SERVER_CERT, &sslEnabled);
 
 		if (!mysql_real_connect(handle, config.host.c_str(), config.user.c_str(), config.pass.c_str(), nullptr, config.port, config.sock.c_str(), 0)) {
 			const std::string error = mysql_error(handle);
@@ -222,7 +224,7 @@ class TestDatabase final {
 			return true;
 		}
 
-		const auto hasPlayerComment = queryHasRows(handle.get(), fmt::format("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{}' AND TABLE_NAME = 'players' AND COLUMN_NAME = 'comment' AND COLUMN_TYPE = 'varchar(255)' AND IS_NULLABLE = 'NO' AND COLUMN_DEFAULT = ''", escapedDatabase));
+		const auto hasPlayerComment = queryHasRows(handle.get(), fmt::format("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '{}' AND TABLE_NAME = 'players' AND COLUMN_NAME = 'comment' AND COLUMN_TYPE = 'varchar(255)' AND IS_NULLABLE = 'NO' AND (COLUMN_DEFAULT = '' OR COLUMN_DEFAULT = QUOTE(''))", escapedDatabase));
 
 		return !hasPlayerComment;
 	}

@@ -5,6 +5,7 @@ target_sources(
             appearance/attached_effects/attached_effects.cpp
             combat/combat.cpp
             combat/condition.cpp
+            combat/spell_requirements.cpp
             combat/spells.cpp
             creature.cpp
             interactions/chat.cpp

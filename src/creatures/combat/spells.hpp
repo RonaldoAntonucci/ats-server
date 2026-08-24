@@ -10,6 +10,7 @@
 #pragma once
 
 #include "lua/creature/actions.hpp"
+#include "creatures/combat/spell_requirements.hpp"
 #include "creatures/players/components/wheel/wheel_definitions.hpp"
 
 class InstantSpell;
@@ -253,6 +254,11 @@ public:
 	[[nodiscard]] const std::string &getWords() const;
 
 	void setWords(std::string_view newWord);
+	[[nodiscard]] SpellRequirementDefinitionResult addDisciplineRequirement(uint16_t disciplineId, uint32_t minimumRank);
+	[[nodiscard]] const SpellRequirementSet &getRequirements() const;
+	[[nodiscard]] bool addTag(std::string tag);
+	[[nodiscard]] bool hasTag(std::string_view tag) const;
+	[[nodiscard]] const std::vector<std::string> &getTags() const;
 
 	[[nodiscard]] const std::string &getSeparator() const;
 
@@ -309,6 +315,8 @@ private:
 	std::string name;
 	std::string m_words;
 	std::string m_separator;
+	SpellRequirementSet requirements;
+	std::vector<std::string> tags;
 
 	friend class SpellFunctions;
 };

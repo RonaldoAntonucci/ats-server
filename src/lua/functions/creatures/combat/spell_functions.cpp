@@ -10,10 +10,37 @@
 #include "lua/functions/creatures/combat/spell_functions.hpp"
 
 #include "creatures/combat/spells.hpp"
+#include "creatures/players/player.hpp"
 #include "creatures/players/vocations/vocation.hpp"
 #include "items/item.hpp"
 #include "utils/tools.hpp"
 #include "lua/functions/lua_functions_loader.hpp"
+
+namespace {
+	std::string_view disciplineDefinitionReason(SpellRequirementDefinitionResult result) {
+		switch (result) {
+			case SpellRequirementDefinitionResult::Added:
+				return "added";
+			case SpellRequirementDefinitionResult::Duplicate:
+				return "duplicate";
+			case SpellRequirementDefinitionResult::InvalidDisciplineId:
+				return "invalid_discipline_id";
+			case SpellRequirementDefinitionResult::InvalidMinimumRank:
+				return "invalid_minimum_rank";
+			case SpellRequirementDefinitionResult::UnknownDiscipline:
+				return "unknown_discipline";
+			case SpellRequirementDefinitionResult::ConflictingDuplicate:
+				return "conflicting_duplicate";
+		}
+		return "invalid_definition";
+	}
+
+	void pushBooleanReason(lua_State* L, bool success, std::string_view reason) {
+		Lua::pushBoolean(L, success);
+		Lua::pushString(L, std::string(reason));
+	}
+
+}
 
 void SpellFunctions::init(lua_State* L) {
 	Lua::registerSharedClass<Spell>(L, "", SpellFunctions::luaSpellCreate);
@@ -48,6 +75,10 @@ void SpellFunctions::init(lua_State* L) {
 	Lua::registerMethod(L, "Spell", "isBlocking", SpellFunctions::luaSpellBlocking);
 	Lua::registerMethod(L, "Spell", "isAggressive", SpellFunctions::luaSpellAggressive);
 	Lua::registerMethod(L, "Spell", "vocation", SpellFunctions::luaSpellVocation);
+	Lua::registerMethod(L, "Spell", "disciplineRequirement", SpellFunctions::luaSpellDisciplineRequirement);
+	Lua::registerMethod(L, "Spell", "tag", SpellFunctions::luaSpellTag);
+	Lua::registerMethod(L, "Spell", "hasTag", SpellFunctions::luaSpellHasTag);
+	Lua::registerMethod(L, "Spell", "getTags", SpellFunctions::luaSpellGetTags);
 
 	Lua::registerMethod(L, "Spell", "castSound", SpellFunctions::luaSpellCastSound);
 	Lua::registerMethod(L, "Spell", "impactSound", SpellFunctions::luaSpellImpactSound);
@@ -170,7 +201,6 @@ int SpellFunctions::luaSpellRegister(lua_State* L) {
 		Lua::pushBoolean(L, false);
 		return 1;
 	}
-
 	if (spell->spellType == SPELL_INSTANT) {
 		const auto &spellBase = Lua::getUserdataShared<Spell>(L, 1, "Spell");
 		const auto &instant = std::static_pointer_cast<InstantSpell>(spellBase);
@@ -178,7 +208,8 @@ int SpellFunctions::luaSpellRegister(lua_State* L) {
 			Lua::pushBoolean(L, false);
 			return 1;
 		}
-		Lua::pushBoolean(L, g_spells().registerInstantLuaEvent(instant));
+		const auto registered = g_spells().registerInstantLuaEvent(instant);
+		Lua::pushBoolean(L, registered);
 	} else if (spell->spellType == SPELL_RUNE) {
 		const auto &spellBase = Lua::getUserdataShared<Spell>(L, 1, "Spell");
 		const auto &rune = std::static_pointer_cast<RuneSpell>(spellBase);
@@ -197,7 +228,8 @@ int SpellFunctions::luaSpellRegister(lua_State* L) {
 			Lua::pushBoolean(L, false);
 			return 1;
 		}
-		Lua::pushBoolean(L, g_spells().registerRuneLuaEvent(rune));
+		const auto registered = g_spells().registerRuneLuaEvent(rune);
+		Lua::pushBoolean(L, registered);
 	}
 	return 1;
 }
@@ -679,6 +711,82 @@ int SpellFunctions::luaSpellVocation(lua_State* L) {
 		}
 	} else {
 		lua_pushnil(L);
+	}
+	return 1;
+}
+
+/***
+ * @function Spell:disciplineRequirement
+ * @param disciplineId integer
+ * @param minimumRank integer
+ * @return boolean success
+ * @return string reason
+ */
+int SpellFunctions::luaSpellDisciplineRequirement(lua_State* L) {
+	const auto &spell = Lua::getUserdataShared<Spell>(L, 1, "Spell");
+	if (!spell || !Lua::isNumber(L, 2) || !Lua::isNumber(L, 3)) {
+		pushBooleanReason(L, false, "wrong_type");
+		return 2;
+	}
+	const auto disciplineId = lua_tonumber(L, 2);
+	const auto minimumRank = lua_tonumber(L, 3);
+	if (std::floor(disciplineId) != disciplineId || std::floor(minimumRank) != minimumRank
+	    || disciplineId < 0 || disciplineId > std::numeric_limits<uint16_t>::max()
+	    || minimumRank < 0 || minimumRank > std::numeric_limits<uint32_t>::max()) {
+		pushBooleanReason(L, false, "wrong_type");
+		return 2;
+	}
+	const auto result = spell->addDisciplineRequirement(static_cast<uint16_t>(disciplineId), static_cast<uint32_t>(minimumRank));
+	pushBooleanReason(L, result == SpellRequirementDefinitionResult::Added || result == SpellRequirementDefinitionResult::Duplicate, disciplineDefinitionReason(result));
+	return 2;
+}
+
+/***
+ * @function Spell:tag
+ * @param tag string
+ * @return boolean success
+ */
+int SpellFunctions::luaSpellTag(lua_State* L) {
+	const auto &spell = Lua::getUserdataShared<Spell>(L, 1, "Spell");
+	if (!spell || lua_type(L, 2) != LUA_TSTRING) {
+		Lua::pushBoolean(L, false);
+		return 1;
+	}
+	Lua::pushBoolean(L, spell->addTag(Lua::getString(L, 2)));
+	return 1;
+}
+
+/***
+ * @function Spell:hasTag
+ * @param tag string
+ * @return boolean
+ */
+int SpellFunctions::luaSpellHasTag(lua_State* L) {
+	const auto &spell = Lua::getUserdataShared<Spell>(L, 1, "Spell");
+	if (!spell || lua_type(L, 2) != LUA_TSTRING) {
+		Lua::pushBoolean(L, false);
+		return 1;
+	}
+	Lua::pushBoolean(L, spell->hasTag(Lua::getString(L, 2)));
+	return 1;
+}
+
+/***
+ * @function Spell:getTags
+ * @return string[]|nil
+ */
+int SpellFunctions::luaSpellGetTags(lua_State* L) {
+	const auto &spell = Lua::getUserdataShared<Spell>(L, 1, "Spell");
+	if (!spell) {
+		lua_pushnil(L);
+		return 1;
+	}
+	const auto &tags = spell->getTags();
+	lua_createtable(L, static_cast<int>(tags.size()), 0);
+	int index = 1;
+	for (const auto &tag : tags) {
+		Lua::pushString(L, tag);
+		lua_rawseti(L, -2, index++);
 	}
 	return 1;
 }

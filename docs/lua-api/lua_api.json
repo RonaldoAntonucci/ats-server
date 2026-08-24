@@ -2272,6 +2272,12 @@
         "source": "src/lua/functions/items/item_functions.cpp"
       },
       {
+        "name": "getAttack",
+        "params": [],
+        "return": "integer|nil",
+        "source": "src/lua/functions/items/item_functions.cpp"
+      },
+      {
         "name": "getAttribute",
         "params": [
           "key: string"
@@ -2309,6 +2315,12 @@
           "key: number|string"
         ],
         "return": "nil",
+        "source": "src/lua/functions/items/item_functions.cpp"
+      },
+      {
+        "name": "getDefense",
+        "params": [],
+        "return": "integer|nil",
         "source": "src/lua/functions/items/item_functions.cpp"
       },
       {
@@ -8319,6 +8331,21 @@
         "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
       },
       {
+        "name": "disciplineRequirement",
+        "params": [
+          "disciplineId: integer",
+          "minimumRank: integer"
+        ],
+        "return": "boolean success, string reason",
+        "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
+      },
+      {
+        "name": "getTags",
+        "params": [],
+        "return": "string[]|nil",
+        "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
+      },
+      {
         "name": "group",
         "params": [
           "primaryGroup?: string",
@@ -8350,6 +8377,14 @@
           "value?: boolean"
         ],
         "return": "boolean|nil",
+        "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
+      },
+      {
+        "name": "hasTag",
+        "params": [
+          "tag: string"
+        ],
+        "return": "boolean",
         "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
       },
       {
@@ -8549,6 +8584,14 @@
           "soul?: number"
         ],
         "return": "boolean|number|nil",
+        "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
+      },
+      {
+        "name": "tag",
+        "params": [
+          "tag: string"
+        ],
+        "return": "boolean success",
         "source": "src/lua/functions/creatures/combat/spell_functions.cpp"
       },
       {
