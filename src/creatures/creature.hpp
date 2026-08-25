@@ -205,6 +205,7 @@ public:
 	[[nodiscard]] bool hasPreparedCast() const;
 	[[nodiscard]] bool preparedCastLocksMovement() const;
 	[[nodiscard]] bool preparedCastLocksDirection() const;
+	[[nodiscard]] std::optional<PreparedCastSnapshot> getPreparedCastSnapshot(PreparedCastClock::time_point now = PreparedCastClock::now()) const;
 	[[nodiscard]] bool beginPreparedCast(PreparedCastState state);
 	[[nodiscard]] std::unique_ptr<PreparedCastState> completePreparedCast(uint64_t expectedToken);
 	[[nodiscard]] std::unique_ptr<PreparedCastState> interruptPreparedCast(PreparedCastInterruptReason reason);

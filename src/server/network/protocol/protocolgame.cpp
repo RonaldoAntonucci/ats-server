@@ -642,6 +642,52 @@ ProtocolGame::ProtocolGame(const Connection_ptr &initConnection) :
 	version = CLIENT_VERSION;
 }
 
+bool CastProgressProtocol::isEnabled(const std::vector<uint8_t> &features) {
+	return std::ranges::find(features, Feature) != features.end();
+}
+
+void CastProgressProtocol::addStart(NetworkMessage &msg, uint32_t creatureId, const PreparedCastSnapshot &snapshot, bool enabled) {
+	if (!enabled || snapshot.durationMs == 0 || snapshot.remainingMs == 0) {
+		return;
+	}
+
+	msg.addByte(0x8B);
+	msg.add<uint32_t>(creatureId);
+	msg.addByte(CreatureDataSubtype);
+	msg.addByte(static_cast<uint8_t>(Action::Start));
+	msg.add<uint64_t>(snapshot.id);
+	msg.add<uint32_t>(snapshot.durationMs);
+	msg.add<uint32_t>(std::min(snapshot.remainingMs, snapshot.durationMs));
+}
+
+void CastProgressProtocol::addCancel(NetworkMessage &msg, uint32_t creatureId, uint64_t castId, bool enabled) {
+	if (!enabled) {
+		return;
+	}
+
+	msg.addByte(0x8B);
+	msg.add<uint32_t>(creatureId);
+	msg.addByte(CreatureDataSubtype);
+	msg.addByte(static_cast<uint8_t>(Action::Cancel));
+	msg.add<uint64_t>(castId);
+}
+
+void CastProgressProtocol::addSnapshot(NetworkMessage &msg, const PreparedCastSnapshot* snapshot, bool enabled) {
+	if (!enabled) {
+		return;
+	}
+
+	if (!snapshot || snapshot->durationMs == 0 || snapshot->remainingMs == 0) {
+		msg.addByte(0);
+		return;
+	}
+
+	msg.addByte(1);
+	msg.add<uint64_t>(snapshot->id);
+	msg.add<uint32_t>(snapshot->durationMs);
+	msg.add<uint32_t>(std::min(snapshot->remainingMs, snapshot->durationMs));
+}
+
 void ProtocolGame::onConnectionAccepted() {
 	const auto* portPinnedProfile = ProtocolProfileRegistry::getProfile(ProtocolProfileId::Current);
 	sessionHintLease.reset();
@@ -4561,6 +4607,28 @@ void ProtocolGame::sendCreatureIcon(const std::shared_ptr<Creature> &creature) {
 	// Type 14 for this
 	msg.addByte(14);
 	addCreatureIcon(msg, creature);
+	writeToOutputBuffer(msg);
+}
+
+void ProtocolGame::sendPreparedCastStart(const std::shared_ptr<Creature> &creature, const PreparedCastSnapshot &snapshot) {
+	if (!creature || !m_supportsCastProgress) {
+		return;
+	}
+
+	NetworkMessage msg;
+	CastProgressProtocol::addStart(msg, creature->getID(), snapshot, true);
+	if (msg.getLength() != 0) {
+		writeToOutputBuffer(msg);
+	}
+}
+
+void ProtocolGame::sendPreparedCastCancel(const std::shared_ptr<Creature> &creature, uint64_t castId) {
+	if (!creature || !m_supportsCastProgress) {
+		return;
+	}
+
+	NetworkMessage msg;
+	CastProgressProtocol::addCancel(msg, creature->getID(), castId, true);
 	writeToOutputBuffer(msg);
 }
 
@@ -9734,6 +9802,11 @@ void ProtocolGame::AddCreature(NetworkMessage &msg, const std::shared_ptr<Creatu
 			msg.add<uint16_t>(id); // g_game.enableFeature(GameCreatureAttachedEffect)
 		}
 	}
+
+	if (m_supportsCastProgress) {
+		const auto snapshot = creature->getPreparedCastSnapshot();
+		CastProgressProtocol::addSnapshot(msg, snapshot ? &*snapshot : nullptr, true);
+	}
 }
 
 void ProtocolGame::AddPlayerStats(NetworkMessage &msg) {
@@ -10663,6 +10736,7 @@ void ProtocolGame::sendOTCRFeatures() {
 	isOTCR = true;
 	const auto &enabledFeatures = g_configManager().getEnabledFeaturesOTC();
 	const auto &disabledFeatures = g_configManager().getDisabledFeaturesOTC();
+	m_supportsCastProgress = CastProgressProtocol::isEnabled(enabledFeatures);
 	NetworkMessage msg;
 	msg.addByte(0x43);
 	auto totalFeatures = static_cast<uint16_t>(enabledFeatures.size() + disabledFeatures.size());

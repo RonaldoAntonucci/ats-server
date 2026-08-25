@@ -62,6 +62,22 @@ class Party;
 class Creature;
 class MonsterType;
 class Npc;
+struct PreparedCastSnapshot;
+
+namespace CastProgressProtocol {
+	inline constexpr uint8_t Feature = 136;
+	inline constexpr uint8_t CreatureDataSubtype = 15;
+
+	enum class Action : uint8_t {
+		Start = 1,
+		Cancel = 2,
+	};
+
+	[[nodiscard]] bool isEnabled(const std::vector<uint8_t> &features);
+	void addStart(NetworkMessage &msg, uint32_t creatureId, const PreparedCastSnapshot &snapshot, bool enabled);
+	void addCancel(NetworkMessage &msg, uint32_t creatureId, uint64_t castId, bool enabled);
+	void addSnapshot(NetworkMessage &msg, const PreparedCastSnapshot* snapshot, bool enabled);
+}
 
 struct ModalWindow;
 struct Position;
@@ -455,6 +471,8 @@ private:
 
 	void sendCreatureLight(const std::shared_ptr<Creature> &creature);
 	void sendCreatureIcon(const std::shared_ptr<Creature> &creature);
+	void sendPreparedCastStart(const std::shared_ptr<Creature> &creature, const PreparedCastSnapshot &snapshot);
+	void sendPreparedCastCancel(const std::shared_ptr<Creature> &creature, uint64_t castId);
 	void sendUpdateCreature(const std::shared_ptr<Creature> &creature);
 	void sendWorldLight(const LightInfo &lightInfo);
 	void sendTibiaTime(int32_t time);
@@ -555,6 +573,9 @@ private:
 	void sendFeatures();
 	// OTCR
 	void sendOTCRFeatures();
+	[[nodiscard]] bool supportsCastProgress() const {
+		return m_supportsCastProgress;
+	}
 	void sendAttachedEffect(const std::shared_ptr<Creature> &creature, uint16_t effectId);
 	void sendDetachEffect(const std::shared_ptr<Creature> &creature, uint16_t effectId);
 	void sendShader(const std::shared_ptr<Creature> &creature, const std::string &shaderName);
@@ -636,6 +657,7 @@ private:
 	bool oldProtocol = false;
 	bool isOTC = false;
 	bool isOTCR = false;
+	bool m_supportsCastProgress = false;
 
 	uint16_t otclientV8 = 0;
 	bool m_isLivestreamBroadcaster = false;

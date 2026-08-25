@@ -325,6 +325,10 @@ bool Creature::preparedCastLocksDirection() const {
 	return preparedCast && preparedCast->config.lockDirection;
 }
 
+std::optional<PreparedCastSnapshot> Creature::getPreparedCastSnapshot(PreparedCastClock::time_point now) const {
+	return preparedCast ? preparedCast->snapshotAt(now) : std::nullopt;
+}
+
 bool Creature::beginPreparedCast(PreparedCastState state) {
 	if (preparedCast) {
 		return false;
