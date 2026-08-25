@@ -1345,6 +1345,7 @@ bool InstantSpell::playerCastInstant(const std::shared_ptr<Player> &player, std:
 			return false;
 		}
 
+		const auto deadline = PreparedCastClock::now() + std::chrono::milliseconds(preparedCastConfig.durationMs);
 		const uint64_t completionEventId = g_dispatcher().scheduleEvent(
 			preparedCastConfig.durationMs,
 			[weakCreature = std::weak_ptr<Creature>(player), token] {
@@ -1365,6 +1366,7 @@ bool InstantSpell::playerCastInstant(const std::shared_ptr<Player> &player, std:
 			.variant = var,
 			.spell = weakSpell,
 			.completionEventId = completionEventId,
+			.deadline = deadline,
 		};
 		if (!player->beginPreparedCast(std::move(state))) {
 			g_dispatcher().stopEvent(completionEventId);

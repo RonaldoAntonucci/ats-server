@@ -52,19 +52,122 @@ TEST(PreparedCastDomainTest, KeepsVariantAndCompletionEventIdentityInState) {
 	LuaVariant variant;
 	variant.type = VARIANT_POSITION;
 	variant.pos = Position { 101, 200, 7 };
+	const auto deadline = PreparedCastClock::time_point {} + std::chrono::milliseconds(700);
 
 	const PreparedCastState state {
 		.config = PreparedCastConfig { 700, true, true, true },
 		.context = PreparedCastContext { 43, Position { 100, 200, 7 }, DIRECTION_EAST },
 		.variant = variant,
 		.completionEventId = 99,
+		.deadline = deadline,
 	};
 
 	EXPECT_EQ(43u, state.context.id);
 	EXPECT_EQ(99u, state.completionEventId);
+	EXPECT_EQ(deadline, state.deadline);
 	EXPECT_EQ(VARIANT_POSITION, state.variant.type);
 	EXPECT_EQ((Position { 101, 200, 7 }), state.variant.pos);
 	EXPECT_TRUE(state.spell.expired());
+}
+
+TEST(PreparedCastSnapshotTest, RejectsSynchronousCastDuration) {
+	const auto now = PreparedCastClock::time_point {} + std::chrono::seconds(1);
+	const PreparedCastState state {
+		.config = PreparedCastConfig {},
+		.context = PreparedCastContext { 44 },
+		.deadline = now + std::chrono::milliseconds(1),
+	};
+
+	EXPECT_FALSE(state.snapshotAt(now).has_value());
+}
+
+TEST(PreparedCastSnapshotTest, ReturnsTheFullDurationAtStart) {
+	const auto now = PreparedCastClock::time_point {} + std::chrono::seconds(1);
+	const PreparedCastState state {
+		.config = PreparedCastConfig { 700 },
+		.context = PreparedCastContext { 45 },
+		.deadline = now + std::chrono::milliseconds(700),
+	};
+
+	const auto snapshot = state.snapshotAt(now);
+	ASSERT_TRUE(snapshot.has_value());
+	EXPECT_EQ(45u, snapshot->id);
+	EXPECT_EQ(700u, snapshot->durationMs);
+	EXPECT_EQ(700u, snapshot->remainingMs);
+}
+
+TEST(PreparedCastSnapshotTest, ReturnsPartialRemainingDuration) {
+	const auto now = PreparedCastClock::time_point {} + std::chrono::seconds(1);
+	const PreparedCastState state {
+		.config = PreparedCastConfig { 700 },
+		.context = PreparedCastContext { 46 },
+		.deadline = now + std::chrono::milliseconds(350),
+	};
+
+	const auto snapshot = state.snapshotAt(now);
+	ASSERT_TRUE(snapshot.has_value());
+	EXPECT_EQ(350u, snapshot->remainingMs);
+}
+
+TEST(PreparedCastSnapshotTest, RoundsAPositiveFractionalMillisecondUp) {
+	const auto now = PreparedCastClock::time_point {} + std::chrono::seconds(1);
+	const PreparedCastState state {
+		.config = PreparedCastConfig { 700 },
+		.context = PreparedCastContext { 47 },
+		.deadline = now + std::chrono::microseconds(1),
+	};
+
+	const auto snapshot = state.snapshotAt(now);
+	ASSERT_TRUE(snapshot.has_value());
+	EXPECT_EQ(1u, snapshot->remainingMs);
+}
+
+TEST(PreparedCastSnapshotTest, ClampsRemainingDurationToTheConfiguredTotal) {
+	const auto now = PreparedCastClock::time_point {} + std::chrono::seconds(1);
+	const PreparedCastState state {
+		.config = PreparedCastConfig { 700 },
+		.context = PreparedCastContext { 48 },
+		.deadline = now + std::chrono::milliseconds(701),
+	};
+
+	const auto snapshot = state.snapshotAt(now);
+	ASSERT_TRUE(snapshot.has_value());
+	EXPECT_EQ(700u, snapshot->remainingMs);
+}
+
+TEST(PreparedCastSnapshotTest, IsEmptyAtTheExactDeadline) {
+	const auto deadline = PreparedCastClock::time_point {} + std::chrono::seconds(1);
+	const PreparedCastState state {
+		.config = PreparedCastConfig { 700 },
+		.context = PreparedCastContext { 49 },
+		.deadline = deadline,
+	};
+
+	EXPECT_FALSE(state.snapshotAt(deadline).has_value());
+}
+
+TEST(PreparedCastSnapshotTest, IsEmptyAfterTheDeadline) {
+	const auto deadline = PreparedCastClock::time_point {} + std::chrono::seconds(1);
+	const PreparedCastState state {
+		.config = PreparedCastConfig { 700 },
+		.context = PreparedCastContext { 50 },
+		.deadline = deadline,
+	};
+
+	EXPECT_FALSE(state.snapshotAt(deadline + std::chrono::milliseconds(1)).has_value());
+}
+
+TEST(PreparedCastSnapshotTest, UsesThePreparedCastTokenAsTheSnapshotId) {
+	const auto now = PreparedCastClock::time_point {} + std::chrono::seconds(1);
+	const PreparedCastState state {
+		.config = PreparedCastConfig { 700 },
+		.context = PreparedCastContext { 51 },
+		.deadline = now + std::chrono::milliseconds(100),
+	};
+
+	const auto snapshot = state.snapshotAt(now);
+	ASSERT_TRUE(snapshot.has_value());
+	EXPECT_EQ(state.context.id, snapshot->id);
 }
 
 TEST(PreparedCastDomainTest, SerializesEveryStableInterruptionReason) {

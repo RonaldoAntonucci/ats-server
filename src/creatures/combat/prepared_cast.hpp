@@ -12,12 +12,23 @@
 #include "lua/global/lua_variant.hpp"
 
 #ifndef USE_PRECOMPILED_HEADERS
+	#include <algorithm>
+	#include <chrono>
 	#include <cstdint>
 	#include <memory>
+	#include <optional>
 	#include <string_view>
 #endif
 
 class InstantSpell;
+
+using PreparedCastClock = std::chrono::steady_clock;
+
+struct PreparedCastSnapshot {
+	uint64_t id;
+	uint32_t durationMs;
+	uint32_t remainingMs;
+};
 
 struct PreparedCastConfig {
 	uint32_t durationMs = 0;
@@ -49,6 +60,20 @@ struct PreparedCastState {
 	LuaVariant variant;
 	std::weak_ptr<const InstantSpell> spell;
 	uint64_t completionEventId = 0;
+	PreparedCastClock::time_point deadline;
+
+	[[nodiscard]] std::optional<PreparedCastSnapshot> snapshotAt(PreparedCastClock::time_point now) const {
+		if (config.durationMs == 0 || now >= deadline) {
+			return std::nullopt;
+		}
+
+		const auto remaining = std::chrono::ceil<std::chrono::milliseconds>(deadline - now).count();
+		return PreparedCastSnapshot {
+			.id = context.id,
+			.durationMs = config.durationMs,
+			.remainingMs = static_cast<uint32_t>(std::min<int64_t>(remaining, config.durationMs)),
+		};
+	}
 };
 
 [[nodiscard]] std::string_view preparedCastInterruptReason(PreparedCastInterruptReason reason);
