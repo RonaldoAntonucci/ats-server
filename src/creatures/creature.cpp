@@ -312,6 +312,50 @@ void Creature::resetMovementState() {
 	}
 }
 
+bool Creature::hasPreparedCast() const {
+	return preparedCast != nullptr;
+}
+
+bool Creature::preparedCastLocksMovement() const {
+	return preparedCast && preparedCast->config.lockMovement;
+}
+
+bool Creature::preparedCastLocksDirection() const {
+	return preparedCast && preparedCast->config.lockDirection;
+}
+
+bool Creature::beginPreparedCast(PreparedCastState state) {
+	if (preparedCast) {
+		return false;
+	}
+
+	preparedCast = std::make_unique<PreparedCastState>(std::move(state));
+	stopEventWalk();
+	resetMovementState();
+	return true;
+}
+
+std::unique_ptr<PreparedCastState> Creature::completePreparedCast(uint64_t expectedToken) {
+	if (!preparedCast || preparedCast->context.id != expectedToken) {
+		return nullptr;
+	}
+
+	return std::exchange(preparedCast, nullptr);
+}
+
+std::unique_ptr<PreparedCastState> Creature::interruptPreparedCast(PreparedCastInterruptReason reason) {
+	(void)reason;
+	if (!preparedCast) {
+		return nullptr;
+	}
+
+	auto interrupted = std::exchange(preparedCast, nullptr);
+	if (interrupted->completionEventId != 0) {
+		g_dispatcher().stopEvent(interrupted->completionEventId);
+	}
+	return interrupted;
+}
+
 bool Creature::getNextStep(Direction &dir, uint32_t &) {
 	if (listWalkDir.empty()) {
 		return false;
@@ -326,7 +370,7 @@ bool Creature::getNextStep(Direction &dir, uint32_t &) {
 void Creature::startAutoWalk(const std::vector<Direction> &listDir, bool ignoreConditions /* = false*/, WalkStartPolicy startPolicy /* = WalkStartPolicy::RespectDelay*/) {
 	listWalkDir.clear();
 
-	if (!ignoreConditions && (hasCondition(CONDITION_ROOTED) || hasCondition(CONDITION_FEARED))) {
+	if (!ignoreConditions && (preparedCastLocksMovement() || hasCondition(CONDITION_ROOTED) || hasCondition(CONDITION_FEARED))) {
 		return;
 	}
 
@@ -500,12 +544,16 @@ void Creature::checkSummonMove(const Position &newPos, bool teleportSummon) {
 
 void Creature::onCreatureMove(const std::shared_ptr<Creature> &creature, const std::shared_ptr<Tile> &newTile, const Position &newPos, const std::shared_ptr<Tile> &oldTile, const Position &oldPos, bool teleport) {
 	metrics::method_latency measure(__METRICS_METHOD_NAME__);
+	const bool selfMove = creature.get() == this;
+	if (selfMove && newPos != oldPos && preparedCast && preparedCast->config.interruptOnPositionChange) {
+		(void)interruptPreparedCast(PreparedCastInterruptReason::PositionChange);
+	}
+
 	if (hasTrackedConditionType(CONDITION_ROOTED) && hasCondition(CONDITION_ROOTED)) {
 		resetMovementState();
 		return;
 	}
 
-	const bool selfMove = creature.get() == this;
 	if (!selfMove) {
 		// Compare control-block identity without promoting weak references for every spectator movement.
 		const auto isTrackedCreature = [&creature](const std::weak_ptr<Creature> &trackedCreature) {
@@ -578,6 +626,7 @@ void Creature::onCreatureMove(const std::shared_ptr<Creature> &creature, const s
 
 void Creature::onDeath() {
 	metrics::method_latency measure(__METRICS_METHOD_NAME__);
+	(void)interruptPreparedCast(PreparedCastInterruptReason::Death);
 	bool lastHitUnjustified = false;
 	bool mostDamageUnjustified = false;
 	const auto &lastHitCreature = g_game().getCreatureByID(lastHitCreatureId);
