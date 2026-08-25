@@ -12,6 +12,7 @@
 #include "config/configmanager.hpp"
 #include "creatures/combat/condition.hpp"
 #include "creatures/combat/combat.hpp"
+#include "creatures/combat/spells.hpp"
 #include "creatures/monsters/monster.hpp"
 #include "creatures/players/grouping/party.hpp"
 #include "game/game.hpp"
@@ -344,7 +345,6 @@ std::unique_ptr<PreparedCastState> Creature::completePreparedCast(uint64_t expec
 }
 
 std::unique_ptr<PreparedCastState> Creature::interruptPreparedCast(PreparedCastInterruptReason reason) {
-	(void)reason;
 	if (!preparedCast) {
 		return nullptr;
 	}
@@ -352,6 +352,9 @@ std::unique_ptr<PreparedCastState> Creature::interruptPreparedCast(PreparedCastI
 	auto interrupted = std::exchange(preparedCast, nullptr);
 	if (interrupted->completionEventId != 0) {
 		g_dispatcher().stopEvent(interrupted->completionEventId);
+	}
+	if (const auto spell = interrupted->spell.lock(); spell && spell->isCurrentRegistration()) {
+		spell->executePrepareInterrupt(getCreature(), interrupted->variant, interrupted->context, reason);
 	}
 	return interrupted;
 }

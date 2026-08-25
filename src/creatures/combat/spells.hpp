@@ -10,6 +10,7 @@
 #pragma once
 
 #include "lua/creature/actions.hpp"
+#include "creatures/combat/prepared_cast.hpp"
 #include "creatures/combat/spell_requirements.hpp"
 #include "creatures/players/components/wheel/wheel_definitions.hpp"
 
@@ -321,7 +322,7 @@ private:
 	friend class SpellFunctions;
 };
 
-class InstantSpell final : public Spell {
+class InstantSpell final : public Spell, public std::enable_shared_from_this<InstantSpell> {
 public:
 	InstantSpell();
 	bool playerCastInstant(const std::shared_ptr<Player> &player, std::string &param) const;
@@ -331,6 +332,21 @@ public:
 
 	// Scripting spell
 	bool executeCastSpell(const std::shared_ptr<Creature> &creature, const LuaVariant &var) const;
+	bool executePreparedCast(const std::shared_ptr<Creature> &creature, const LuaVariant &var, const PreparedCastContext &context) const;
+	bool executePrepareStart(const std::shared_ptr<Creature> &creature, const LuaVariant &var, const PreparedCastContext &context) const;
+	void executePrepareInterrupt(const std::shared_ptr<Creature> &creature, const LuaVariant &var, const PreparedCastContext &context, PreparedCastInterruptReason reason) const;
+
+	void setPreparedCastConfig(PreparedCastConfig config);
+	[[nodiscard]] const PreparedCastConfig &getPreparedCastConfig() const;
+	[[nodiscard]] bool usesPreparedCast() const;
+	void setPrepareStartScriptId(int32_t scriptId);
+	[[nodiscard]] int32_t getPrepareStartScriptId() const;
+	[[nodiscard]] bool hasPrepareStartCallback() const;
+	void setPrepareInterruptScriptId(int32_t scriptId);
+	[[nodiscard]] int32_t getPrepareInterruptScriptId() const;
+	[[nodiscard]] bool hasPrepareInterruptCallback() const;
+	[[nodiscard]] bool isCurrentRegistration() const;
+	static void completePreparedCast(const std::shared_ptr<Creature> &creature, uint64_t token);
 
 	[[nodiscard]] bool isInstant() const override;
 	[[nodiscard]] bool getHasParam() const;
@@ -347,6 +363,9 @@ public:
 	bool canThrowSpell(const std::shared_ptr<Creature> &creature, const std::shared_ptr<Creature> &target) const;
 
 private:
+	PreparedCastConfig preparedCastConfig;
+	int32_t prepareStartScriptId = 0;
+	int32_t prepareInterruptScriptId = 0;
 	bool needDirection = false;
 	bool hasParam = false;
 	bool hasPlayerNameParam = false;

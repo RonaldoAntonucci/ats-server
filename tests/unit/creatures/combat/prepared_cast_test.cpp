@@ -8,7 +8,11 @@
  */
 
 #include "creatures/combat/prepared_cast.hpp"
+#include "creatures/combat/spells.hpp"
+#include "creatures/combat/condition.hpp"
+#include "creatures/players/grouping/groups.hpp"
 #include "creatures/players/player.hpp"
+#include "enums/account_group_type.hpp"
 #include "items/tile.hpp"
 
 #include <gtest/gtest.h>
@@ -115,6 +119,26 @@ namespace {
 			.config = config,
 			.context = PreparedCastContext { id, Position { 100, 200, 7 }, DIRECTION_EAST },
 		};
+	}
+
+	std::shared_ptr<Player> makePreparedPlayer() {
+		auto player = std::make_shared<Player>();
+		auto group = std::make_shared<Group>();
+		group->id = GROUP_TYPE_NORMAL;
+		player->setGroup(group);
+		player->setFlag(PlayerFlags_t::IgnoreSpellCheck);
+		return player;
+	}
+
+	std::shared_ptr<InstantSpell> makePreparedInstant(std::string_view words, uint16_t spellId) {
+		auto spell = std::make_shared<InstantSpell>();
+		spell->setName(std::string(words));
+		spell->setWords(words);
+		spell->setSpellId(spellId);
+		spell->setSelfTarget(true);
+		spell->setAggressive(false);
+		spell->soundCastEffect = SoundEffect_t::SILENCE;
+		return spell;
 	}
 }
 
@@ -240,4 +264,136 @@ TEST(PreparedCastCreatureTest, DeathInterruptsPreparationBeforeDeathHandling) {
 	creature->onDeath();
 
 	EXPECT_FALSE(creature->hasPreparedCast());
+}
+
+TEST(PreparedCastInstantSpellTest, UsesTheLegacySynchronousConfigurationByDefault) {
+	const auto spell = std::make_shared<InstantSpell>();
+
+	EXPECT_FALSE(spell->usesPreparedCast());
+	EXPECT_EQ(0u, spell->getPreparedCastConfig().durationMs);
+	EXPECT_FALSE(spell->hasPrepareStartCallback());
+	EXPECT_FALSE(spell->hasPrepareInterruptCallback());
+}
+
+TEST(PreparedCastInstantSpellTest, RetainsPreparedConfigurationAndCallbackIdentity) {
+	const auto spell = std::make_shared<InstantSpell>();
+	spell->setPreparedCastConfig({ 700, true, true, true });
+	spell->setPrepareStartScriptId(120);
+	spell->setPrepareInterruptScriptId(121);
+
+	EXPECT_TRUE(spell->usesPreparedCast());
+	EXPECT_EQ(700u, spell->getPreparedCastConfig().durationMs);
+	EXPECT_TRUE(spell->getPreparedCastConfig().lockMovement);
+	EXPECT_TRUE(spell->getPreparedCastConfig().lockDirection);
+	EXPECT_TRUE(spell->getPreparedCastConfig().interruptOnPositionChange);
+	EXPECT_TRUE(spell->hasPrepareStartCallback());
+	EXPECT_TRUE(spell->hasPrepareInterruptCallback());
+	EXPECT_EQ(120, spell->getPrepareStartScriptId());
+	EXPECT_EQ(121, spell->getPrepareInterruptScriptId());
+}
+
+TEST(PreparedCastInstantSpellTest, MissingOptionalPreflightAcceptsWithoutLua) {
+	const auto spell = std::make_shared<InstantSpell>();
+	const auto creature = std::make_shared<TestPreparedCreature>();
+	const LuaVariant variant;
+	const PreparedCastContext context { 1100, Position { 100, 200, 7 }, DIRECTION_NORTH };
+
+	EXPECT_TRUE(spell->executePrepareStart(creature, variant, context));
+}
+
+TEST(PreparedCastInstantSpellTest, StaleCompletionTokenLeavesTheActiveCastUntouched) {
+	const auto spell = std::make_shared<InstantSpell>();
+	const auto creature = std::make_shared<TestPreparedCreature>();
+	auto state = makePreparedState(1200);
+	state.spell = spell;
+	ASSERT_TRUE(creature->beginPreparedCast(std::move(state)));
+
+	InstantSpell::completePreparedCast(creature, 1201);
+
+	EXPECT_TRUE(creature->hasPreparedCast());
+}
+
+TEST(PreparedCastInstantSpellTest, CompletionReleasesStateWhenSpellIsNotRegistered) {
+	const auto spell = std::make_shared<InstantSpell>();
+	const auto creature = std::make_shared<TestPreparedCreature>();
+	auto state = makePreparedState(1300);
+	state.spell = spell;
+	ASSERT_TRUE(creature->beginPreparedCast(std::move(state)));
+
+	InstantSpell::completePreparedCast(creature, 1300);
+
+	EXPECT_FALSE(creature->hasPreparedCast());
+}
+
+TEST(PreparedCastInstantSpellTest, CompletionReleasesStateAfterSpellExpires) {
+	const auto creature = std::make_shared<TestPreparedCreature>();
+	auto state = makePreparedState(1400);
+	{
+		const auto obsoleteSpell = std::make_shared<InstantSpell>();
+		state.spell = obsoleteSpell;
+	}
+	ASSERT_TRUE(state.spell.expired());
+	ASSERT_TRUE(creature->beginPreparedCast(std::move(state)));
+
+	InstantSpell::completePreparedCast(creature, 1400);
+
+	EXPECT_FALSE(creature->hasPreparedCast());
+}
+
+TEST(PreparedCastInstantSpellTest, ReplacementMakesTheOldRegistrationObsolete) {
+	const auto oldSpell = std::make_shared<InstantSpell>();
+	oldSpell->setName("prepared replacement old");
+	oldSpell->setWords("prepared replacement");
+	const auto newSpell = std::make_shared<InstantSpell>();
+	newSpell->setName("prepared replacement new");
+	newSpell->setWords("prepared replacement");
+	g_spells().setInstantSpell("prepared replacement", oldSpell);
+	EXPECT_TRUE(oldSpell->isCurrentRegistration());
+
+	g_spells().setInstantSpell("prepared replacement", newSpell);
+
+	EXPECT_FALSE(oldSpell->isCurrentRegistration());
+	EXPECT_TRUE(newSpell->isCurrentRegistration());
+}
+
+TEST(PreparedCastInstantSpellTest, AcceptedStartOwnsStateAndAppliesCooldownExactlyOnce) {
+	const auto player = makePreparedPlayer();
+	const auto spell = makePreparedInstant("prepared accepted", 61000);
+	spell->setCooldown(5000);
+	spell->setPreparedCastConfig({ 60000, true, true, true });
+	g_spells().setInstantSpell(spell->getWords(), spell);
+	std::string param;
+
+	ASSERT_TRUE(spell->playerCastInstant(player, param));
+	EXPECT_TRUE(player->hasPreparedCast());
+	EXPECT_TRUE(player->preparedCastLocksMovement());
+	EXPECT_TRUE(player->preparedCastLocksDirection());
+	const auto cooldown = player->getCondition(CONDITION_SPELLCOOLDOWN, CONDITIONID_DEFAULT, spell->getSpellId());
+	ASSERT_NE(nullptr, cooldown);
+	const auto firstCooldownEnd = cooldown->getEndTime();
+
+	EXPECT_FALSE(spell->playerCastInstant(player, param));
+	EXPECT_TRUE(player->hasPreparedCast());
+	EXPECT_EQ(firstCooldownEnd, cooldown->getEndTime());
+	ASSERT_NE(nullptr, player->interruptPreparedCast(PreparedCastInterruptReason::Removal));
+	EXPECT_FALSE(player->hasPreparedCast());
+	EXPECT_NE(nullptr, player->getCondition(CONDITION_SPELLCOOLDOWN, CONDITIONID_DEFAULT, spell->getSpellId()));
+}
+
+TEST(PreparedCastInstantSpellTest, UnownedPreparedSpellRejectsWithoutStateOrCooldown) {
+	const auto player = makePreparedPlayer();
+	InstantSpell spell;
+	spell.setName("prepared unowned");
+	spell.setWords("prepared unowned");
+	spell.setSpellId(61001);
+	spell.setSelfTarget(true);
+	spell.setAggressive(false);
+	spell.soundCastEffect = SoundEffect_t::SILENCE;
+	spell.setCooldown(5000);
+	spell.setPreparedCastConfig({ 700, true, true, true });
+	std::string param;
+
+	EXPECT_FALSE(spell.playerCastInstant(player, param));
+	EXPECT_FALSE(player->hasPreparedCast());
+	EXPECT_EQ(nullptr, player->getCondition(CONDITION_SPELLCOOLDOWN, CONDITIONID_DEFAULT, spell.getSpellId()));
 }
