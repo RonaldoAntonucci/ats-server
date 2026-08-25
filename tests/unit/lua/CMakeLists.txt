@@ -4,5 +4,6 @@ target_sources(
             event_callback_manager_test.cpp
             item_power_bindings_test.cpp
             network_message_functions_test.cpp
+            prepared_cast_bindings_test.cpp
             spell_tag_bindings_test.cpp
 )

@@ -1540,6 +1540,7 @@ void InstantSpell::executePrepareInterrupt(const std::shared_ptr<Creature> &crea
 
 void InstantSpell::setPreparedCastConfig(PreparedCastConfig config) {
 	preparedCastConfig = config;
+	preparedCastDefinitionValid = true;
 }
 
 const PreparedCastConfig &InstantSpell::getPreparedCastConfig() const {
@@ -1548,6 +1549,14 @@ const PreparedCastConfig &InstantSpell::getPreparedCastConfig() const {
 
 bool InstantSpell::usesPreparedCast() const {
 	return preparedCastConfig.durationMs > 0;
+}
+
+void InstantSpell::invalidatePreparedCastDefinition() {
+	preparedCastDefinitionValid = false;
+}
+
+bool InstantSpell::isPreparedCastDefinitionValid() const {
+	return preparedCastDefinitionValid;
 }
 
 void InstantSpell::setPrepareStartScriptId(int32_t scriptId) {

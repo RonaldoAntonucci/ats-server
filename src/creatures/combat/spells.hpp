@@ -339,6 +339,8 @@ public:
 	void setPreparedCastConfig(PreparedCastConfig config);
 	[[nodiscard]] const PreparedCastConfig &getPreparedCastConfig() const;
 	[[nodiscard]] bool usesPreparedCast() const;
+	void invalidatePreparedCastDefinition();
+	[[nodiscard]] bool isPreparedCastDefinitionValid() const;
 	void setPrepareStartScriptId(int32_t scriptId);
 	[[nodiscard]] int32_t getPrepareStartScriptId() const;
 	[[nodiscard]] bool hasPrepareStartCallback() const;
@@ -364,6 +366,7 @@ public:
 
 private:
 	PreparedCastConfig preparedCastConfig;
+	bool preparedCastDefinitionValid = true;
 	int32_t prepareStartScriptId = 0;
 	int32_t prepareInterruptScriptId = 0;
 	bool needDirection = false;
