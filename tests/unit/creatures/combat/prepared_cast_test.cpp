@@ -181,10 +181,12 @@ TEST(PreparedCastDomainTest, SerializesEveryStableInterruptionReason) {
 namespace {
 	int preparedInterruptCallbackCount = 0;
 	std::string preparedInterruptCallbackReason;
+	size_t preparedCancelQueriesBeforeCallback = 0;
 
 	int observePreparedInterruption(lua_State* L) {
 		++preparedInterruptCallbackCount;
 		preparedInterruptCallbackReason = Lua::getString(L, 4);
+		preparedCancelQueriesBeforeCallback = g_game().getPreparedCastPublicationMetrics().cancelSpatialQueries;
 		return 0;
 	}
 
@@ -230,14 +232,38 @@ namespace {
 	};
 
 	PreparedCastState makePreparedState(uint64_t id, PreparedCastConfig config = { 700, true, true, true }) {
+		const auto deadline = PreparedCastClock::now() + std::chrono::milliseconds(config.durationMs);
 		return {
 			.config = config,
 			.context = PreparedCastContext { id, Position { 100, 200, 7 }, DIRECTION_EAST },
+			.deadline = deadline,
 		};
 	}
 
+	void placePreparedCreature(const std::shared_ptr<Creature> &creature, const Position &position) {
+		ASSERT_NE(nullptr, g_game().map.getOrCreateTile(position, true));
+		ASSERT_TRUE(g_game().internalPlaceCreature(creature, position, false, true));
+	}
+
+	void removePreparedCreature(const std::shared_ptr<Creature> &creature) {
+		if (creature && !creature->isRemoved()) {
+			const auto tile = creature->getTile();
+			ASSERT_NE(nullptr, tile);
+			tile->removeCreature(creature);
+			creature->setParent({});
+			creature->removeList();
+			creature->setRemoved();
+			Game::removeCreatureCheck(creature);
+		}
+	}
+
 	std::shared_ptr<Player> makePreparedPlayer() {
+		static uint32_t nextGuid = 900000;
 		auto player = std::make_shared<Player>();
+		const auto guid = nextGuid++;
+		player->setName("Prepared Cast Viewer " + std::to_string(guid));
+		player->setGUID(guid);
+		player->setID();
 		auto group = std::make_shared<Group>();
 		group->id = GROUP_TYPE_NORMAL;
 		player->setGroup(group);
@@ -350,10 +376,12 @@ TEST(PreparedCastCreatureTest, RealSelfPositionChangeInterruptsConfiguredPrepara
 	auto newTile = std::make_shared<DynamicTile>(Position { 101, 200, 7 });
 	creature->setParent(oldTile);
 	ASSERT_TRUE(creature->beginPreparedCast(makePreparedState(700)));
+	g_game().resetPreparedCastPublicationMetrics();
 
 	creature->Creature::onCreatureMove(creature, newTile, newTile->getPosition(), oldTile, oldTile->getPosition(), false);
 
 	EXPECT_FALSE(creature->hasPreparedCast());
+	EXPECT_EQ(1u, g_game().getPreparedCastPublicationMetrics().cancelSpatialQueries);
 }
 
 TEST(PreparedCastCreatureTest, PositionChangePolicyCanRemainDisabled) {
@@ -384,10 +412,187 @@ TEST(PreparedCastCreatureTest, OtherCreatureMovementCannotInterruptPreparation) 
 TEST(PreparedCastCreatureTest, DeathInterruptsPreparationBeforeDeathHandling) {
 	auto creature = std::make_shared<TestPreparedCreature>();
 	ASSERT_TRUE(creature->beginPreparedCast(makePreparedState(1000)));
+	g_game().resetPreparedCastPublicationMetrics();
 
 	creature->onDeath();
 
 	EXPECT_FALSE(creature->hasPreparedCast());
+	EXPECT_EQ(1u, g_game().getPreparedCastPublicationMetrics().cancelSpatialQueries);
+}
+
+TEST(PreparedCastPublicationTest, ZeroDurationCreatesNoStartPublication) {
+	auto creature = std::make_shared<TestPreparedCreature>();
+	g_game().resetPreparedCastPublicationMetrics();
+
+	ASSERT_TRUE(creature->beginPreparedCast(makePreparedState(2000, {})));
+	EXPECT_EQ(0u, g_game().getPreparedCastPublicationMetrics().startSpatialQueries);
+	ASSERT_NE(nullptr, creature->completePreparedCast(2000));
+}
+
+TEST(PreparedCastPublicationTest, AcceptedPositiveDurationPublishesOneStart) {
+	auto creature = std::make_shared<TestPreparedCreature>();
+	g_game().resetPreparedCastPublicationMetrics();
+
+	ASSERT_TRUE(creature->beginPreparedCast(makePreparedState(2001)));
+	EXPECT_EQ(1u, g_game().getPreparedCastPublicationMetrics().startSpatialQueries);
+	ASSERT_NE(nullptr, creature->completePreparedCast(2001));
+}
+
+TEST(PreparedCastPublicationTest, RejectedSecondCastPublishesNoAdditionalStart) {
+	auto creature = std::make_shared<TestPreparedCreature>();
+	ASSERT_TRUE(creature->beginPreparedCast(makePreparedState(2002)));
+	g_game().resetPreparedCastPublicationMetrics();
+
+	EXPECT_FALSE(creature->beginPreparedCast(makePreparedState(2003)));
+	EXPECT_EQ(0u, g_game().getPreparedCastPublicationMetrics().startSpatialQueries);
+	ASSERT_NE(nullptr, creature->completePreparedCast(2002));
+}
+
+TEST(PreparedCastPublicationTest, NormalCompletionPublishesNoCancel) {
+	auto creature = std::make_shared<TestPreparedCreature>();
+	ASSERT_TRUE(creature->beginPreparedCast(makePreparedState(2004)));
+	g_game().resetPreparedCastPublicationMetrics();
+
+	ASSERT_NE(nullptr, creature->completePreparedCast(2004));
+	EXPECT_EQ(0u, g_game().getPreparedCastPublicationMetrics().cancelSpatialQueries);
+}
+
+TEST(PreparedCastPublicationTest, EarlyInterruptionPublishesMatchingCancel) {
+	auto creature = std::make_shared<TestPreparedCreature>();
+	ASSERT_TRUE(creature->beginPreparedCast(makePreparedState(2005)));
+	g_game().resetPreparedCastPublicationMetrics();
+
+	const auto interrupted = creature->interruptPreparedCast(PreparedCastInterruptReason::Removal);
+	ASSERT_NE(nullptr, interrupted);
+	EXPECT_EQ(2005u, interrupted->context.id);
+	EXPECT_EQ(1u, g_game().getPreparedCastPublicationMetrics().cancelSpatialQueries);
+}
+
+TEST(PreparedCastPublicationTest, InterruptionAtOrAfterDeadlinePublishesNoCancel) {
+	auto state = makePreparedState(2006);
+	state.deadline = PreparedCastClock::now();
+	auto creature = std::make_shared<TestPreparedCreature>();
+	ASSERT_TRUE(creature->beginPreparedCast(std::move(state)));
+	g_game().resetPreparedCastPublicationMetrics();
+
+	ASSERT_NE(nullptr, creature->interruptPreparedCast(PreparedCastInterruptReason::Removal));
+	EXPECT_EQ(0u, g_game().getPreparedCastPublicationMetrics().cancelSpatialQueries);
+}
+
+TEST(PreparedCastPublicationTest, NonPlayerCasterWithNoViewersHasZeroRecipients) {
+	const Position position { 300, 300, 7 };
+	auto creature = std::make_shared<TestPreparedCreature>();
+	placePreparedCreature(creature, position);
+	g_game().resetPreparedCastPublicationMetrics();
+
+	ASSERT_TRUE(creature->beginPreparedCast(makePreparedState(2007)));
+	const auto &metrics = g_game().getPreparedCastPublicationMetrics();
+	EXPECT_EQ(1u, metrics.startSpatialQueries);
+	EXPECT_EQ(0u, metrics.startRecipients);
+	ASSERT_NE(nullptr, creature->completePreparedCast(2007));
+	removePreparedCreature(creature);
+}
+
+TEST(PreparedCastPublicationTest, PlayerCasterReceivesItsOwnStart) {
+	const Position position { 320, 320, 7 };
+	auto caster = makePreparedPlayer();
+	placePreparedCreature(caster, position);
+	caster->resetTestPreparedCastDeliveries();
+	g_game().resetPreparedCastPublicationMetrics();
+
+	ASSERT_TRUE(caster->beginPreparedCast(makePreparedState(2008)));
+	const auto &metrics = g_game().getPreparedCastPublicationMetrics();
+	EXPECT_EQ(1u, metrics.startSpatialQueries);
+	EXPECT_EQ(1u, metrics.startRecipients);
+	ASSERT_EQ(1u, caster->getTestPreparedCastDeliveries().starts);
+	ASSERT_TRUE(caster->getTestPreparedCastDeliveries().lastStart.has_value());
+	EXPECT_EQ(2008u, caster->getTestPreparedCastDeliveries().lastStart->id);
+	ASSERT_NE(nullptr, caster->completePreparedCast(2008));
+	removePreparedCreature(caster);
+}
+
+TEST(PreparedCastPublicationTest, OneVisibleSpectatorReceivesTheStart) {
+	const Position casterPosition { 340, 340, 7 };
+	auto caster = std::make_shared<TestPreparedCreature>();
+	auto spectator = makePreparedPlayer();
+	placePreparedCreature(caster, casterPosition);
+	placePreparedCreature(spectator, Position { 341, 340, 7 });
+	spectator->resetTestPreparedCastDeliveries();
+	g_game().resetPreparedCastPublicationMetrics();
+
+	ASSERT_TRUE(caster->beginPreparedCast(makePreparedState(2009)));
+	EXPECT_EQ(1u, g_game().getPreparedCastPublicationMetrics().startRecipients);
+	EXPECT_EQ(1u, spectator->getTestPreparedCastDeliveries().starts);
+	ASSERT_NE(nullptr, caster->completePreparedCast(2009));
+	removePreparedCreature(spectator);
+	removePreparedCreature(caster);
+}
+
+TEST(PreparedCastPublicationTest, SeveralVisibleSpectatorsExcludeOutOfViewPlayer) {
+	const Position casterPosition { 360, 360, 7 };
+	auto caster = std::make_shared<TestPreparedCreature>();
+	auto first = makePreparedPlayer();
+	auto second = makePreparedPlayer();
+	auto outside = makePreparedPlayer();
+	placePreparedCreature(caster, casterPosition);
+	placePreparedCreature(first, Position { 361, 360, 7 });
+	placePreparedCreature(second, Position { 360, 361, 7 });
+	placePreparedCreature(outside, Position { 500, 500, 7 });
+	first->resetTestPreparedCastDeliveries();
+	second->resetTestPreparedCastDeliveries();
+	outside->resetTestPreparedCastDeliveries();
+	g_game().resetPreparedCastPublicationMetrics();
+
+	ASSERT_TRUE(caster->beginPreparedCast(makePreparedState(2010)));
+	const auto &metrics = g_game().getPreparedCastPublicationMetrics();
+	EXPECT_EQ(1u, metrics.startSpatialQueries);
+	EXPECT_EQ(2u, metrics.startRecipients);
+	EXPECT_EQ(1u, first->getTestPreparedCastDeliveries().starts);
+	EXPECT_EQ(1u, second->getTestPreparedCastDeliveries().starts);
+	EXPECT_EQ(0u, outside->getTestPreparedCastDeliveries().starts);
+	ASSERT_NE(nullptr, caster->completePreparedCast(2010));
+	removePreparedCreature(outside);
+	removePreparedCreature(second);
+	removePreparedCreature(first);
+	removePreparedCreature(caster);
+}
+
+TEST(PreparedCastPublicationTest, EveryRecipientGetsTheSameStartSnapshot) {
+	const Position casterPosition { 380, 380, 7 };
+	auto caster = std::make_shared<TestPreparedCreature>();
+	auto first = makePreparedPlayer();
+	auto second = makePreparedPlayer();
+	placePreparedCreature(caster, casterPosition);
+	placePreparedCreature(first, Position { 381, 380, 7 });
+	placePreparedCreature(second, Position { 380, 381, 7 });
+	first->resetTestPreparedCastDeliveries();
+	second->resetTestPreparedCastDeliveries();
+
+	ASSERT_TRUE(caster->beginPreparedCast(makePreparedState(2011)));
+	const auto &firstSnapshot = first->getTestPreparedCastDeliveries().lastStart;
+	const auto &secondSnapshot = second->getTestPreparedCastDeliveries().lastStart;
+	ASSERT_TRUE(firstSnapshot.has_value());
+	ASSERT_TRUE(secondSnapshot.has_value());
+	EXPECT_EQ(firstSnapshot->id, secondSnapshot->id);
+	EXPECT_EQ(firstSnapshot->durationMs, secondSnapshot->durationMs);
+	EXPECT_EQ(firstSnapshot->remainingMs, secondSnapshot->remainingMs);
+	ASSERT_NE(nullptr, caster->completePreparedCast(2011));
+	removePreparedCreature(second);
+	removePreparedCreature(first);
+	removePreparedCreature(caster);
+}
+
+TEST(PreparedCastPublicationTest, CancelIsPublishedBeforeInterruptionCallback) {
+	preparedCancelQueriesBeforeCallback = 0;
+	const auto spell = makeObservedPreparedInstant("prepared cancel ordering");
+	auto state = makePreparedState(2012);
+	state.spell = spell;
+	auto caster = std::make_shared<TestPreparedCreature>();
+	ASSERT_TRUE(caster->beginPreparedCast(std::move(state)));
+	g_game().resetPreparedCastPublicationMetrics();
+
+	ASSERT_NE(nullptr, caster->interruptPreparedCast(PreparedCastInterruptReason::Removal));
+	EXPECT_EQ(1u, preparedCancelQueriesBeforeCallback);
 }
 
 TEST(PreparedCastInstantSpellTest, UsesTheLegacySynchronousConfigurationByDefault) {
@@ -554,12 +759,14 @@ TEST(PreparedCastGameTest, LogoutInterruptsBeforeTeardownExactlyOnce) {
 	auto state = makePreparedState(1600);
 	state.spell = spell;
 	ASSERT_TRUE(creature->beginPreparedCast(std::move(state)));
+	g_game().resetPreparedCastPublicationMetrics();
 
 	ASSERT_TRUE(g_game().removeCreature(creature, true));
 	EXPECT_FALSE(creature->hasPreparedCast());
 	EXPECT_TRUE(creature->isRemoved());
 	EXPECT_EQ(1, preparedInterruptCallbackCount);
 	EXPECT_EQ("logout", preparedInterruptCallbackReason);
+	EXPECT_EQ(1u, g_game().getPreparedCastPublicationMetrics().cancelSpatialQueries);
 	EXPECT_FALSE(g_game().removeCreature(creature, true));
 	InstantSpell::completePreparedCast(creature, 1600);
 	EXPECT_EQ(1, preparedInterruptCallbackCount);
@@ -576,11 +783,13 @@ TEST(PreparedCastGameTest, RemovalUsesItsDistinctStableReason) {
 	auto state = makePreparedState(1700);
 	state.spell = spell;
 	ASSERT_TRUE(creature->beginPreparedCast(std::move(state)));
+	g_game().resetPreparedCastPublicationMetrics();
 
 	ASSERT_TRUE(g_game().removeCreature(creature, false));
 	EXPECT_FALSE(creature->hasPreparedCast());
 	EXPECT_EQ(1, preparedInterruptCallbackCount);
 	EXPECT_EQ("removal", preparedInterruptCallbackReason);
+	EXPECT_EQ(1u, g_game().getPreparedCastPublicationMetrics().cancelSpatialQueries);
 }
 
 TEST(PreparedCastGameTest, DamageAndNonPositionalControlLeavePreparationActive) {

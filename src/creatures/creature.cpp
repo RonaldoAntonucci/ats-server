@@ -337,6 +337,9 @@ bool Creature::beginPreparedCast(PreparedCastState state) {
 	preparedCast = std::make_unique<PreparedCastState>(std::move(state));
 	stopEventWalk();
 	resetMovementState();
+	if (const auto snapshot = preparedCast->snapshotAt(PreparedCastClock::now())) {
+		g_game().publishPreparedCastStart(getCreature(), *snapshot);
+	}
 	return true;
 }
 
@@ -356,6 +359,9 @@ std::unique_ptr<PreparedCastState> Creature::interruptPreparedCast(PreparedCastI
 	auto interrupted = std::exchange(preparedCast, nullptr);
 	if (interrupted->completionEventId != 0) {
 		g_dispatcher().stopEvent(interrupted->completionEventId);
+	}
+	if (interrupted->snapshotAt(PreparedCastClock::now())) {
+		g_game().publishPreparedCastCancel(getCreature(), interrupted->context.id);
 	}
 	if (const auto spell = interrupted->spell.lock(); spell && spell->isCurrentRegistration()) {
 		spell->executePrepareInterrupt(getCreature(), interrupted->variant, interrupted->context, reason);
