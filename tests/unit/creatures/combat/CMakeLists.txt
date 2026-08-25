@@ -1,4 +1,5 @@
 target_sources(
     canary_ut
-    PRIVATE spell_requirements_test.cpp
+    PRIVATE prepared_cast_test.cpp
+            spell_requirements_test.cpp
 )

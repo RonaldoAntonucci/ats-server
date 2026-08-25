@@ -8902,6 +8902,26 @@ void Player::sendCreatureIcon(const std::shared_ptr<Creature> &creature) const {
 	}
 }
 
+void Player::sendPreparedCastStart(const std::shared_ptr<Creature> &creature, const PreparedCastSnapshot &snapshot) const {
+#ifdef BUILD_TESTS
+	++testPreparedCastDeliveries.starts;
+	testPreparedCastDeliveries.lastStart = snapshot;
+#endif
+	if (client) {
+		client->sendPreparedCastStart(creature, snapshot);
+	}
+}
+
+void Player::sendPreparedCastCancel(const std::shared_ptr<Creature> &creature, uint64_t castId) const {
+#ifdef BUILD_TESTS
+	++testPreparedCastDeliveries.cancels;
+	testPreparedCastDeliveries.lastCancelId = castId;
+#endif
+	if (client) {
+		client->sendPreparedCastCancel(creature, castId);
+	}
+}
+
 void Player::sendUpdateCreature(const std::shared_ptr<Creature> &creature) const {
 	if (client) {
 		client->sendUpdateCreature(creature);

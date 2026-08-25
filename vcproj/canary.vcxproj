@@ -23,6 +23,7 @@
     <ClInclude Include="..\src\creatures\appearance\attached_effects\attached_effects.hpp" />
     <ClInclude Include="..\src\creatures\combat\combat.hpp" />
     <ClInclude Include="..\src\creatures\combat\condition.hpp" />
+    <ClInclude Include="..\src\creatures\combat\prepared_cast.hpp" />
     <ClInclude Include="..\src\creatures\combat\spell_requirements.hpp" />
     <ClInclude Include="..\src\creatures\combat\spells.hpp" />
     <ClInclude Include="..\src\creatures\creature.hpp" />
@@ -272,6 +273,7 @@
     <ClCompile Include="..\src\creatures\appearance\attached_effects\attached_effects.cpp" />
     <ClCompile Include="..\src\creatures\combat\combat.cpp" />
     <ClCompile Include="..\src\creatures\combat\condition.cpp" />
+    <ClCompile Include="..\src\creatures\combat\prepared_cast.cpp" />
     <ClCompile Include="..\src\creatures\combat\spell_requirements.cpp" />
     <ClCompile Include="..\src\creatures\combat\spells.cpp" />
     <ClCompile Include="..\src\creatures\creature.cpp" />

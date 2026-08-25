@@ -18,12 +18,23 @@
 #include "enums/account_group_type.hpp"
 #include "enums/account_type.hpp"
 #include "game/game.hpp"
+#include "game/scheduling/dispatcher.hpp"
 #include "lua/global/lua_variant.hpp"
 #include "lua/scripts/lua_environment.hpp"
 #include "lua/scripts/scripts.hpp"
 #include "lib/di/container.hpp"
 
 namespace {
+	std::atomic_uint64_t nextPreparedCastToken { 1 };
+
+	void pushPreparedCastContext(lua_State* L, const PreparedCastContext &context) {
+		lua_createtable(L, 0, 3);
+		Lua::setField(L, "id", context.id);
+		Lua::pushPosition(L, context.origin);
+		lua_setfield(L, -2, "origin");
+		Lua::setField(L, "direction", context.direction);
+	}
+
 	void applySanctuaryEffect(const std::shared_ptr<Player> &player, uint8_t harmonies) {
 		uint32_t sanctuarySubId = magic_enum::enum_integer(AttrSubId_t::Sanctuary);
 		if (!player->wheel().getInstant(WheelInstant_t::SANCTUARY) || harmonies == 0 || player->hasCondition(CONDITION_ATTRIBUTES, sanctuarySubId)) {
@@ -175,7 +186,7 @@ bool Spells::hasInstantSpell(const std::string &word) const {
 }
 
 void Spells::setInstantSpell(const std::string &word, const std::shared_ptr<InstantSpell> &instant) {
-	instants.try_emplace(word, instant);
+	instants.insert_or_assign(word, instant);
 }
 
 bool Spells::registerInstantLuaEvent(const std::shared_ptr<InstantSpell> &instant) {
@@ -1204,6 +1215,10 @@ void Spell::setLockedPZ(bool b) {
 InstantSpell::InstantSpell() = default;
 
 bool InstantSpell::playerCastInstant(const std::shared_ptr<Player> &player, std::string &param) const {
+	if (player->hasPreparedCast()) {
+		return false;
+	}
+
 	if (!playerSpellCheck(player)) {
 		return false;
 	}
@@ -1317,6 +1332,57 @@ bool InstantSpell::playerCastInstant(const std::shared_ptr<Player> &player, std:
 		return false;
 	}
 
+	if (usesPreparedCast()) {
+		const uint64_t token = nextPreparedCastToken.fetch_add(1, std::memory_order_relaxed);
+		const PreparedCastContext context { token, player->getPosition(), player->getDirection() };
+		if (!executePrepareStart(player, var, context)) {
+			return false;
+		}
+
+		const auto weakSpell = weak_from_this();
+		if (weakSpell.expired()) {
+			executePrepareInterrupt(player, var, context, PreparedCastInterruptReason::SchedulerRejected);
+			return false;
+		}
+
+		const auto deadline = PreparedCastClock::now() + std::chrono::milliseconds(preparedCastConfig.durationMs);
+		const uint64_t completionEventId = g_dispatcher().scheduleEvent(
+			preparedCastConfig.durationMs,
+			[weakCreature = std::weak_ptr<Creature>(player), token] {
+				if (const auto creature = weakCreature.lock()) {
+					InstantSpell::completePreparedCast(creature, token);
+				}
+			},
+			"InstantSpell::completePreparedCast"
+		);
+		if (completionEventId == 0) {
+			executePrepareInterrupt(player, var, context, PreparedCastInterruptReason::SchedulerRejected);
+			return false;
+		}
+
+		PreparedCastState state {
+			.config = preparedCastConfig,
+			.context = context,
+			.variant = var,
+			.spell = weakSpell,
+			.completionEventId = completionEventId,
+			.deadline = deadline,
+		};
+		if (!player->beginPreparedCast(std::move(state))) {
+			g_dispatcher().stopEvent(completionEventId);
+			executePrepareInterrupt(player, var, context, PreparedCastInterruptReason::SchedulerRejected);
+			return false;
+		}
+
+		auto worldType = g_game().getWorldType();
+		if (pzLocked && (worldType == WORLD_TYPE_PVP || worldType == WORLD_TYPE_PVP_ENFORCED) && shouldApplyLegacySpellPzLock(player, pzLockTarget)) {
+			player->addInFightTicks(true);
+			player->updateLastAggressiveAction();
+		}
+		postCastSpell(player);
+		return true;
+	}
+
 	auto worldType = g_game().getWorldType();
 	if (pzLocked && (worldType == WORLD_TYPE_PVP || worldType == WORLD_TYPE_PVP_ENFORCED) && shouldApplyLegacySpellPzLock(player, pzLockTarget)) {
 		player->addInFightTicks(true);
@@ -1405,6 +1471,139 @@ bool InstantSpell::executeCastSpell(const std::shared_ptr<Creature> &creature, c
 	LuaScriptInterface::pushVariant(L, var);
 
 	return getScriptInterface()->callFunction(2);
+}
+
+bool InstantSpell::executePreparedCast(const std::shared_ptr<Creature> &creature, const LuaVariant &var, const PreparedCastContext &context) const {
+	if (!LuaEnvironment::reserveScriptEnv()) {
+		g_logger().error("[InstantSpell::executePreparedCast - Creature {} words {}] "
+		                 "Call stack overflow. Too many lua script calls being nested.",
+		                 creature->getName(), getWords());
+		return false;
+	}
+
+	ScriptEnvironment* env = LuaEnvironment::getScriptEnv();
+	env->setScriptId(getScriptId(), getScriptInterface());
+
+	lua_State* L = getScriptInterface()->getLuaState();
+	getScriptInterface()->pushFunction(getScriptId());
+	LuaScriptInterface::pushUserdata<Creature>(L, creature);
+	LuaScriptInterface::setCreatureMetatable(L, -1, creature);
+	LuaScriptInterface::pushVariant(L, var);
+	pushPreparedCastContext(L, context);
+	return getScriptInterface()->callFunction(3);
+}
+
+bool InstantSpell::executePrepareStart(const std::shared_ptr<Creature> &creature, const LuaVariant &var, const PreparedCastContext &context) const {
+	if (!hasPrepareStartCallback()) {
+		return true;
+	}
+	if (!LuaEnvironment::reserveScriptEnv()) {
+		g_logger().error("[InstantSpell::executePrepareStart - Creature {} words {}] "
+		                 "Call stack overflow. Too many lua script calls being nested.",
+		                 creature->getName(), getWords());
+		return false;
+	}
+
+	ScriptEnvironment* env = LuaEnvironment::getScriptEnv();
+	env->setScriptId(prepareStartScriptId, getScriptInterface());
+
+	lua_State* L = getScriptInterface()->getLuaState();
+	getScriptInterface()->pushFunction(prepareStartScriptId);
+	LuaScriptInterface::pushUserdata<Creature>(L, creature);
+	LuaScriptInterface::setCreatureMetatable(L, -1, creature);
+	LuaScriptInterface::pushVariant(L, var);
+	pushPreparedCastContext(L, context);
+	return getScriptInterface()->callFunction(3);
+}
+
+void InstantSpell::executePrepareInterrupt(const std::shared_ptr<Creature> &creature, const LuaVariant &var, const PreparedCastContext &context, PreparedCastInterruptReason reason) const {
+	if (!hasPrepareInterruptCallback()) {
+		return;
+	}
+	if (!LuaEnvironment::reserveScriptEnv()) {
+		g_logger().error("[InstantSpell::executePrepareInterrupt - Creature {} words {}] "
+		                 "Call stack overflow. Too many lua script calls being nested.",
+		                 creature->getName(), getWords());
+		return;
+	}
+
+	ScriptEnvironment* env = LuaEnvironment::getScriptEnv();
+	env->setScriptId(prepareInterruptScriptId, getScriptInterface());
+
+	lua_State* L = getScriptInterface()->getLuaState();
+	getScriptInterface()->pushFunction(prepareInterruptScriptId);
+	LuaScriptInterface::pushUserdata<Creature>(L, creature);
+	LuaScriptInterface::setCreatureMetatable(L, -1, creature);
+	LuaScriptInterface::pushVariant(L, var);
+	pushPreparedCastContext(L, context);
+	Lua::pushString(L, std::string(preparedCastInterruptReason(reason)));
+	getScriptInterface()->callVoidFunction(4);
+}
+
+void InstantSpell::setPreparedCastConfig(PreparedCastConfig config) {
+	preparedCastConfig = config;
+	preparedCastDefinitionValid = true;
+}
+
+const PreparedCastConfig &InstantSpell::getPreparedCastConfig() const {
+	return preparedCastConfig;
+}
+
+bool InstantSpell::usesPreparedCast() const {
+	return preparedCastConfig.durationMs > 0;
+}
+
+void InstantSpell::invalidatePreparedCastDefinition() {
+	preparedCastDefinitionValid = false;
+}
+
+bool InstantSpell::isPreparedCastDefinitionValid() const {
+	return preparedCastDefinitionValid;
+}
+
+void InstantSpell::setPrepareStartScriptId(int32_t scriptId) {
+	prepareStartScriptId = scriptId;
+}
+
+int32_t InstantSpell::getPrepareStartScriptId() const {
+	return prepareStartScriptId;
+}
+
+bool InstantSpell::hasPrepareStartCallback() const {
+	return prepareStartScriptId != 0;
+}
+
+void InstantSpell::setPrepareInterruptScriptId(int32_t scriptId) {
+	prepareInterruptScriptId = scriptId;
+}
+
+int32_t InstantSpell::getPrepareInterruptScriptId() const {
+	return prepareInterruptScriptId;
+}
+
+bool InstantSpell::hasPrepareInterruptCallback() const {
+	return prepareInterruptScriptId != 0;
+}
+
+bool InstantSpell::isCurrentRegistration() const {
+	const auto &registered = g_spells().getInstantSpells();
+	const auto it = registered.find(getWords());
+	return it != registered.end() && it->second.get() == this;
+}
+
+void InstantSpell::completePreparedCast(const std::shared_ptr<Creature> &creature, uint64_t token) {
+	if (!creature) {
+		return;
+	}
+	const auto completed = creature->completePreparedCast(token);
+	if (!completed) {
+		return;
+	}
+	const auto spell = completed->spell.lock();
+	if (!spell || !spell->isCurrentRegistration()) {
+		return;
+	}
+	spell->executePreparedCast(creature, completed->variant, completed->context);
 }
 
 bool InstantSpell::isInstant() const {

@@ -55,6 +55,16 @@ class WildcardTreeNode;
 struct Achievement;
 struct HighscoreCategory;
 struct TextMessage;
+struct PreparedCastSnapshot;
+
+#ifdef BUILD_TESTS
+struct PreparedCastPublicationMetrics {
+	size_t startSpatialQueries = 0;
+	size_t cancelSpatialQueries = 0;
+	size_t startRecipients = 0;
+	size_t cancelRecipients = 0;
+};
+#endif
 
 enum ObjectCategory_t : uint8_t;
 enum class ForgeAction_t : uint8_t;
@@ -532,6 +542,18 @@ public:
 
 	// Animation help functions
 	void addCreatureHealth(const std::shared_ptr<Creature> &target);
+	void publishPreparedCastStart(const std::shared_ptr<Creature> &creature, const PreparedCastSnapshot &snapshot);
+	void publishPreparedCastCancel(const std::shared_ptr<Creature> &creature, uint64_t castId);
+
+#ifdef BUILD_TESTS
+	const PreparedCastPublicationMetrics &getPreparedCastPublicationMetrics() const {
+		return preparedCastPublicationMetrics;
+	}
+
+	void resetPreparedCastPublicationMetrics() {
+		preparedCastPublicationMetrics = {};
+	}
+#endif
 	static void addCreatureHealth(const CreatureVector &spectators, const std::shared_ptr<Creature> &target);
 	void addPlayerMana(const std::shared_ptr<Player> &target);
 	void addPlayerVocation(const std::shared_ptr<Player> &target);
@@ -772,6 +794,9 @@ public:
 	std::shared_ptr<Container> findManagedContainer(const std::shared_ptr<Player> &player, bool &fallbackConsumed, ObjectCategory_t category, bool isLootContainer);
 
 private:
+#ifdef BUILD_TESTS
+	PreparedCastPublicationMetrics preparedCastPublicationMetrics;
+#endif
 	std::map<uint16_t, Achievement> m_achievements;
 	std::map<std::string, uint16_t> m_achievementsNameToId;
 

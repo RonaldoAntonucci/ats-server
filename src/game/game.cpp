@@ -1553,6 +1553,7 @@ bool Game::removeCreature(const std::shared_ptr<Creature> &creature, bool isLogo
 	if (!creature || creature->isRemoved()) {
 		return false;
 	}
+	(void)creature->interruptPreparedCast(isLogout ? PreparedCastInterruptReason::Logout : PreparedCastInterruptReason::Removal);
 
 	std::shared_ptr<Tile> tile = creature->getTile();
 	if (!tile) {
@@ -7605,7 +7606,7 @@ bool Game::internalCreatureTurn(const std::shared_ptr<Creature> &creature, Direc
 		player->cancelPush();
 	}
 
-	if (!creature->isDirectionLocked()) {
+	if (!creature->isDirectionLocked() && !creature->preparedCastLocksDirection()) {
 		creature->setDirection(dir);
 	}
 
@@ -9299,6 +9300,36 @@ bool Game::combatChangeMana(const std::shared_ptr<Creature> &attacker, const std
 void Game::addCreatureHealth(const std::shared_ptr<Creature> &target) {
 	auto spectators = Spectators().find<Player>(target->getPosition(), true);
 	addCreatureHealth(spectators.data(), target);
+}
+
+void Game::publishPreparedCastStart(const std::shared_ptr<Creature> &creature, const PreparedCastSnapshot &snapshot) {
+#ifdef BUILD_TESTS
+	++preparedCastPublicationMetrics.startSpatialQueries;
+#endif
+	const auto spectators = Spectators().find<Player>(creature->getPosition(), true);
+	for (const auto &spectator : spectators) {
+		if (const auto &spectatorPlayer = spectator->getPlayer()) {
+			spectatorPlayer->sendPreparedCastStart(creature, snapshot);
+#ifdef BUILD_TESTS
+			++preparedCastPublicationMetrics.startRecipients;
+#endif
+		}
+	}
+}
+
+void Game::publishPreparedCastCancel(const std::shared_ptr<Creature> &creature, uint64_t castId) {
+#ifdef BUILD_TESTS
+	++preparedCastPublicationMetrics.cancelSpatialQueries;
+#endif
+	const auto spectators = Spectators().find<Player>(creature->getPosition(), true);
+	for (const auto &spectator : spectators) {
+		if (const auto &spectatorPlayer = spectator->getPlayer()) {
+			spectatorPlayer->sendPreparedCastCancel(creature, castId);
+#ifdef BUILD_TESTS
+			++preparedCastPublicationMetrics.cancelRecipients;
+#endif
+		}
+	}
 }
 
 void Game::addCreatureHealth(const CreatureVector &spectators, const std::shared_ptr<Creature> &target) {

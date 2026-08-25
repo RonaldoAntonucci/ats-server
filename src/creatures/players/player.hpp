@@ -986,6 +986,25 @@ public:
 	void sendCreatureChangeVisible(const std::shared_ptr<Creature> &creature, bool visible);
 	void sendCreatureLight(const std::shared_ptr<Creature> &creature) const;
 	void sendCreatureIcon(const std::shared_ptr<Creature> &creature) const;
+	void sendPreparedCastStart(const std::shared_ptr<Creature> &creature, const PreparedCastSnapshot &snapshot) const;
+	void sendPreparedCastCancel(const std::shared_ptr<Creature> &creature, uint64_t castId) const;
+
+#ifdef BUILD_TESTS
+	struct TestPreparedCastDeliveries {
+		size_t starts = 0;
+		size_t cancels = 0;
+		std::optional<PreparedCastSnapshot> lastStart;
+		uint64_t lastCancelId = 0;
+	};
+
+	const TestPreparedCastDeliveries &getTestPreparedCastDeliveries() const {
+		return testPreparedCastDeliveries;
+	}
+
+	void resetTestPreparedCastDeliveries() {
+		testPreparedCastDeliveries = {};
+	}
+#endif
 	void sendUpdateCreature(const std::shared_ptr<Creature> &creature) const;
 	void sendCreatureWalkthrough(const std::shared_ptr<Creature> &creature, bool walkthrough) const;
 	void sendCreatureShield(const std::shared_ptr<Creature> &creature) const;
@@ -1778,6 +1797,7 @@ private:
 	std::shared_ptr<RewardChest> rewardChest = nullptr;
 #ifdef BUILD_TESTS
 	uint32_t testIP = 0;
+	mutable TestPreparedCastDeliveries testPreparedCastDeliveries;
 #endif
 
 	uint32_t inventoryWeight = 0;

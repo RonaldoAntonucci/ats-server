@@ -15,6 +15,7 @@
 #include "items/item.hpp"
 #include "utils/tools.hpp"
 #include "lua/functions/lua_functions_loader.hpp"
+#include "lua/scripts/luascript.hpp"
 
 namespace {
 	std::string_view disciplineDefinitionReason(SpellRequirementDefinitionResult result) {
@@ -85,6 +86,24 @@ void SpellFunctions::init(lua_State* L) {
 
 	// Only for InstantSpell.
 	Lua::registerMethod(L, "Spell", "words", SpellFunctions::luaSpellWords);
+	/***
+	 * @function Spell:prepare
+	 * @param config { duration: integer, lockMovement?: boolean, lockDirection?: boolean, interruptOnPositionChange?: boolean }
+	 * @return boolean
+	 */
+	Lua::registerMethod(L, "Spell", "prepare", SpellFunctions::luaSpellPrepare);
+	/***
+	 * @function Spell:onPrepareStart
+	 * @param callback fun(creature: Creature, variant: Variant, context: { id: integer, origin: Position, direction: Direction }): boolean
+	 * @return boolean
+	 */
+	Lua::registerMethod(L, "Spell", "onPrepareStart", SpellFunctions::luaSpellOnPrepareStart);
+	/***
+	 * @function Spell:onPrepareInterrupt
+	 * @param callback fun(creature: Creature, variant: Variant, context: { id: integer, origin: Position, direction: Direction }, reason: string)
+	 * @return boolean
+	 */
+	Lua::registerMethod(L, "Spell", "onPrepareInterrupt", SpellFunctions::luaSpellOnPrepareInterrupt);
 	Lua::registerMethod(L, "Spell", "needDirection", SpellFunctions::luaSpellNeedDirection);
 	Lua::registerMethod(L, "Spell", "hasParams", SpellFunctions::luaSpellHasParams);
 	Lua::registerMethod(L, "Spell", "hasPlayerNameParam", SpellFunctions::luaSpellHasPlayerNameParam);
@@ -204,6 +223,10 @@ int SpellFunctions::luaSpellRegister(lua_State* L) {
 	if (spell->spellType == SPELL_INSTANT) {
 		const auto &spellBase = Lua::getUserdataShared<Spell>(L, 1, "Spell");
 		const auto &instant = std::static_pointer_cast<InstantSpell>(spellBase);
+		if (!instant->isPreparedCastDefinitionValid()) {
+			Lua::pushBoolean(L, false);
+			return 1;
+		}
 		if (!instant->isLoadedScriptId()) {
 			Lua::pushBoolean(L, false);
 			return 1;
@@ -819,6 +842,106 @@ int SpellFunctions::luaSpellWords(lua_State* L) {
 	} else {
 		lua_pushnil(L);
 	}
+	return 1;
+}
+
+// only for InstantSpells
+int SpellFunctions::luaSpellPrepare(lua_State* L) {
+	const auto &spellBase = Lua::getUserdataShared<Spell>(L, 1, "Spell");
+	if (!spellBase || spellBase->spellType != SPELL_INSTANT) {
+		Lua::pushBoolean(L, false);
+		return 1;
+	}
+	const auto &spell = std::static_pointer_cast<InstantSpell>(spellBase);
+	PreparedCastConfig candidate;
+	bool valid = lua_gettop(L) == 2 && lua_istable(L, 2);
+	bool hasDuration = false;
+
+	if (valid) {
+		lua_pushnil(L);
+		while (lua_next(L, 2) != 0) {
+			if (lua_type(L, -2) != LUA_TSTRING) {
+				valid = false;
+			} else {
+				const std::string key = Lua::getString(L, -2);
+				if (key == "duration") {
+					hasDuration = true;
+					if (lua_type(L, -1) != LUA_TNUMBER) {
+						valid = false;
+					} else {
+						const lua_Number duration = lua_tonumber(L, -1);
+						if (!std::isfinite(duration) || duration <= 0 || std::floor(duration) != duration || duration > std::numeric_limits<uint32_t>::max()) {
+							valid = false;
+						} else {
+							candidate.durationMs = static_cast<uint32_t>(duration);
+						}
+					}
+				} else if (key == "lockMovement" || key == "lockDirection" || key == "interruptOnPositionChange") {
+					if (lua_type(L, -1) != LUA_TBOOLEAN) {
+						valid = false;
+					} else {
+						const bool value = lua_toboolean(L, -1) != 0;
+						if (key == "lockMovement") {
+							candidate.lockMovement = value;
+						} else if (key == "lockDirection") {
+							candidate.lockDirection = value;
+						} else {
+							candidate.interruptOnPositionChange = value;
+						}
+					}
+				} else {
+					valid = false;
+				}
+			}
+			lua_pop(L, 1);
+		}
+	}
+
+	valid = valid && hasDuration;
+	if (!valid) {
+		spell->invalidatePreparedCastDefinition();
+		Lua::pushBoolean(L, false);
+		return 1;
+	}
+
+	spell->setPreparedCastConfig(candidate);
+	Lua::pushBoolean(L, true);
+	return 1;
+}
+
+// only for InstantSpells
+int SpellFunctions::luaSpellOnPrepareStart(lua_State* L) {
+	const auto &spellBase = Lua::getUserdataShared<Spell>(L, 1, "Spell");
+	if (!spellBase || spellBase->spellType != SPELL_INSTANT || !lua_isfunction(L, 2)) {
+		Lua::pushBoolean(L, false);
+		return 1;
+	}
+	const auto &spell = std::static_pointer_cast<InstantSpell>(spellBase);
+	const int32_t scriptId = spell->getScriptInterface()->getEvent();
+	if (scriptId == -1) {
+		Lua::pushBoolean(L, false);
+		return 1;
+	}
+	spell->setPrepareStartScriptId(scriptId);
+	Lua::pushBoolean(L, true);
+	return 1;
+}
+
+// only for InstantSpells
+int SpellFunctions::luaSpellOnPrepareInterrupt(lua_State* L) {
+	const auto &spellBase = Lua::getUserdataShared<Spell>(L, 1, "Spell");
+	if (!spellBase || spellBase->spellType != SPELL_INSTANT || !lua_isfunction(L, 2)) {
+		Lua::pushBoolean(L, false);
+		return 1;
+	}
+	const auto &spell = std::static_pointer_cast<InstantSpell>(spellBase);
+	const int32_t scriptId = spell->getScriptInterface()->getEvent();
+	if (scriptId == -1) {
+		Lua::pushBoolean(L, false);
+		return 1;
+	}
+	spell->setPrepareInterruptScriptId(scriptId);
+	Lua::pushBoolean(L, true);
 	return 1;
 }
 

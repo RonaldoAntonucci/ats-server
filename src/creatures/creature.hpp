@@ -10,6 +10,7 @@
 #pragma once
 
 #include "creatures/creatures_definitions.hpp"
+#include "creatures/combat/prepared_cast.hpp"
 #include "game/game_definitions.hpp"
 #include "game/movement/position.hpp"
 #include "items/thing.hpp"
@@ -200,6 +201,14 @@ public:
 	void setDirectionLocked(bool locked) {
 		directionLocked = locked;
 	}
+
+	[[nodiscard]] bool hasPreparedCast() const;
+	[[nodiscard]] bool preparedCastLocksMovement() const;
+	[[nodiscard]] bool preparedCastLocksDirection() const;
+	[[nodiscard]] std::optional<PreparedCastSnapshot> getPreparedCastSnapshot(PreparedCastClock::time_point now = PreparedCastClock::now()) const;
+	[[nodiscard]] bool beginPreparedCast(PreparedCastState state);
+	[[nodiscard]] std::unique_ptr<PreparedCastState> completePreparedCast(uint64_t expectedToken);
+	[[nodiscard]] std::unique_ptr<PreparedCastState> interruptPreparedCast(PreparedCastInterruptReason reason);
 
 	int32_t getThrowRange() const final {
 		return 1;
@@ -873,6 +882,7 @@ protected:
 	}
 
 	std::vector<Direction> listWalkDir;
+	std::unique_ptr<PreparedCastState> preparedCast;
 
 	std::weak_ptr<Tile> m_tile;
 	std::weak_ptr<Creature> m_attackedCreature;
