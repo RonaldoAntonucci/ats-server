@@ -1553,6 +1553,7 @@ bool Game::removeCreature(const std::shared_ptr<Creature> &creature, bool isLogo
 	if (!creature || creature->isRemoved()) {
 		return false;
 	}
+	(void)creature->interruptPreparedCast(isLogout ? PreparedCastInterruptReason::Logout : PreparedCastInterruptReason::Removal);
 
 	std::shared_ptr<Tile> tile = creature->getTile();
 	if (!tile) {
@@ -7605,7 +7606,7 @@ bool Game::internalCreatureTurn(const std::shared_ptr<Creature> &creature, Direc
 		player->cancelPush();
 	}
 
-	if (!creature->isDirectionLocked()) {
+	if (!creature->isDirectionLocked() && !creature->preparedCastLocksDirection()) {
 		creature->setDirection(dir);
 	}
 

@@ -13,7 +13,10 @@
 #include "creatures/players/grouping/groups.hpp"
 #include "creatures/players/player.hpp"
 #include "enums/account_group_type.hpp"
+#include "game/game.hpp"
 #include "items/tile.hpp"
+#include "lua/functions/lua_functions_loader.hpp"
+#include "lua/scripts/scripts.hpp"
 
 #include <gtest/gtest.h>
 
@@ -73,6 +76,15 @@ TEST(PreparedCastDomainTest, SerializesEveryStableInterruptionReason) {
 }
 
 namespace {
+	int preparedInterruptCallbackCount = 0;
+	std::string preparedInterruptCallbackReason;
+
+	int observePreparedInterruption(lua_State* L) {
+		++preparedInterruptCallbackCount;
+		preparedInterruptCallbackReason = Lua::getString(L, 4);
+		return 0;
+	}
+
 	class TestPreparedCreature final : public Creature {
 	public:
 		std::string getDescription(int32_t) override {
@@ -138,6 +150,15 @@ namespace {
 		spell->setSelfTarget(true);
 		spell->setAggressive(false);
 		spell->soundCastEffect = SoundEffect_t::SILENCE;
+		return spell;
+	}
+
+	std::shared_ptr<InstantSpell> makeObservedPreparedInstant(std::string_view words) {
+		auto spell = makePreparedInstant(words, 0);
+		lua_State* L = g_scripts().getScriptInterface().getLuaState();
+		lua_pushcfunction(L, observePreparedInterruption);
+		spell->setPrepareInterruptScriptId(g_scripts().getScriptInterface().getEvent());
+		g_spells().setInstantSpell(spell->getWords(), spell);
 		return spell;
 	}
 }
@@ -396,4 +417,80 @@ TEST(PreparedCastInstantSpellTest, UnownedPreparedSpellRejectsWithoutStateOrCool
 	EXPECT_FALSE(spell.playerCastInstant(player, param));
 	EXPECT_FALSE(player->hasPreparedCast());
 	EXPECT_EQ(nullptr, player->getCondition(CONDITION_SPELLCOOLDOWN, CONDITIONID_DEFAULT, spell.getSpellId()));
+}
+
+TEST(PreparedCastGameTest, PreparedDirectionLockBlocksTurnWithoutMutatingLegacyState) {
+	const auto creature = std::make_shared<TestPreparedCreature>();
+	creature->setDirection(DIRECTION_EAST);
+	ASSERT_TRUE(creature->beginPreparedCast(makePreparedState(1500, { 700, false, true, false })));
+
+	EXPECT_TRUE(g_game().internalCreatureTurn(creature, DIRECTION_WEST));
+	EXPECT_EQ(DIRECTION_EAST, creature->getDirection());
+	EXPECT_FALSE(creature->isDirectionLocked());
+	ASSERT_NE(nullptr, creature->interruptPreparedCast(PreparedCastInterruptReason::Removal));
+	EXPECT_FALSE(creature->isDirectionLocked());
+
+	EXPECT_TRUE(g_game().internalCreatureTurn(creature, DIRECTION_WEST));
+	EXPECT_EQ(DIRECTION_WEST, creature->getDirection());
+	creature->setDirectionLocked(true);
+	ASSERT_TRUE(creature->beginPreparedCast(makePreparedState(1501, { 700, false, true, false })));
+	ASSERT_NE(nullptr, creature->interruptPreparedCast(PreparedCastInterruptReason::Removal));
+	EXPECT_TRUE(creature->isDirectionLocked());
+	EXPECT_TRUE(g_game().internalCreatureTurn(creature, DIRECTION_NORTH));
+	EXPECT_EQ(DIRECTION_WEST, creature->getDirection());
+}
+
+TEST(PreparedCastGameTest, LogoutInterruptsBeforeTeardownExactlyOnce) {
+	preparedInterruptCallbackCount = 0;
+	preparedInterruptCallbackReason.clear();
+	const auto creature = std::make_shared<TestPreparedCreature>();
+	const Position position { 200, 200, 7 };
+	ASSERT_NE(nullptr, g_game().map.getOrCreateTile(position, true));
+	ASSERT_TRUE(g_game().internalPlaceCreature(creature, position, false, true));
+	const auto spell = makeObservedPreparedInstant("prepared logout guard");
+	auto state = makePreparedState(1600);
+	state.spell = spell;
+	ASSERT_TRUE(creature->beginPreparedCast(std::move(state)));
+
+	ASSERT_TRUE(g_game().removeCreature(creature, true));
+	EXPECT_FALSE(creature->hasPreparedCast());
+	EXPECT_TRUE(creature->isRemoved());
+	EXPECT_EQ(1, preparedInterruptCallbackCount);
+	EXPECT_EQ("logout", preparedInterruptCallbackReason);
+	EXPECT_FALSE(g_game().removeCreature(creature, true));
+	InstantSpell::completePreparedCast(creature, 1600);
+	EXPECT_EQ(1, preparedInterruptCallbackCount);
+}
+
+TEST(PreparedCastGameTest, RemovalUsesItsDistinctStableReason) {
+	preparedInterruptCallbackCount = 0;
+	preparedInterruptCallbackReason.clear();
+	const auto creature = std::make_shared<TestPreparedCreature>();
+	const Position position { 201, 200, 7 };
+	ASSERT_NE(nullptr, g_game().map.getOrCreateTile(position, true));
+	ASSERT_TRUE(g_game().internalPlaceCreature(creature, position, false, true));
+	const auto spell = makeObservedPreparedInstant("prepared removal guard");
+	auto state = makePreparedState(1700);
+	state.spell = spell;
+	ASSERT_TRUE(creature->beginPreparedCast(std::move(state)));
+
+	ASSERT_TRUE(g_game().removeCreature(creature, false));
+	EXPECT_FALSE(creature->hasPreparedCast());
+	EXPECT_EQ(1, preparedInterruptCallbackCount);
+	EXPECT_EQ("removal", preparedInterruptCallbackReason);
+}
+
+TEST(PreparedCastGameTest, DamageAndNonPositionalControlLeavePreparationActive) {
+	const auto creature = std::make_shared<TestPreparedCreature>();
+	ASSERT_TRUE(creature->beginPreparedCast(makePreparedState(1800)));
+	const int32_t healthBefore = creature->getHealth();
+
+	creature->changeHealth(-10, false);
+	EXPECT_EQ(healthBefore - 10, creature->getHealth());
+	EXPECT_TRUE(creature->hasPreparedCast());
+
+	const auto condition = Condition::createCondition(CONDITIONID_COMBAT, CONDITION_PARALYZE, 1000, 0);
+	ASSERT_TRUE(creature->addCondition(condition));
+	EXPECT_TRUE(creature->hasPreparedCast());
+	ASSERT_NE(nullptr, creature->interruptPreparedCast(PreparedCastInterruptReason::Removal));
 }
